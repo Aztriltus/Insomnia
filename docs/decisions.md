@@ -94,6 +94,21 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 
 </details>
 
+## Testing
+
+**Where it stands:** the suite keeps only the essentials and runs in under a minute.
+
+**Replaced:** upstream's full suite (about 1,250 tests, 20 minutes) → the essentials (about 515 tests, under a minute) (2026-10-24).
+
+<details>
+<summary>1 decision</summary>
+
+| Date | Decision | Why | Turned down |
+| --- | --- | --- | --- |
+| 2026-10-24 | **Cut the test suite to the essentials: the session engine, recovery, lid actions, floors, failover, config, the menu, and a core set of recovery-script cases.** | "The full test suite is slow for such a small app." | Keeping upstream's edge-case suites (branding, release workflow, brightness, hung commands, keychain internals and others). |
+
+</details>
+
 ## Spec review
 
 **Where it stands:** the gap fixes from the 2026-10-23 review are accepted and written into the redesign spec.

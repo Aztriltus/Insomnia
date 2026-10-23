@@ -30,6 +30,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private var widthWriter: StatusWidthWriter?
     /// The width the status item is heading for.
     private(set) var widthTarget: CGFloat = 0
+    /// A throttled browser's icon was clicked in the open menu; its own
+    /// menu opens once that one has closed.
+    private var pendingThrottled: ThrottledBrowser?
     private var addHourObserver: NSObjectProtocol?
 
     /// Autosave name so macOS remembers where the user drags the item.
@@ -57,6 +60,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         installHostingView()
         observeManager()
         managerChanged()
+        // The throttled-browser scan otherwise first runs when the menu
+        // opens, too late for that opening to show its result.
+        status.refreshOnDemand()
+        #if DEBUG
+        debugAtLaunch()
+        #endif
         addHourObserver = NotificationCenter.default.addObserver(
             forName: ForegroundNotifications.addHourPressed, object: nil, queue: .main
         ) { [weak self] _ in
@@ -212,16 +221,52 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             relaunchBrowser: #selector(menuRelaunchBrowser(_:)),
             stopWaitingForOutput: #selector(menuStopWaitingForOutput(_:)),
             throttledTapped: { [weak self] browser in
-                // After the menu has closed: one menu at a time.
-                DispatchQueue.main.async { self?.showThrottledMenu(browser) }
+                // Shown once this menu has closed: one menu at a time.
+                self?.pendingThrottled = browser
             }
         )
         for item in tail.items {
             tail.removeItem(item)
             menu.addItem(item)
         }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
+        present(menu, from: button)
+        if let browser = pendingThrottled {
+            pendingThrottled = nil
+            showThrottledMenu(browser)
+        }
     }
+
+    /// Opens `menu` where macOS puts a status item's menu, under the item
+    /// and highlighting it. Returns once the menu has closed.
+    private func present(_ menu: NSMenu, from button: NSStatusBarButton) {
+        statusItem.menu = menu
+        #if DEBUG
+        debugWhileOpen(menu)
+        #endif
+        button.performClick(nil)
+        statusItem.menu = nil
+    }
+
+    #if DEBUG
+    /// Debug builds only: `INSOMNIA_DEBUG_MENU=open` opens the menu two
+    /// seconds after launch, so its rendering can be captured without a
+    /// mouse; `=throttled` also clicks the first throttled browser's icon.
+    private func debugAtLaunch() {
+        guard ProcessInfo.processInfo.environment["INSOMNIA_DEBUG_MENU"] != nil else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in self?.showMenu() }
+    }
+
+    private func debugWhileOpen(_ menu: NSMenu) {
+        guard ProcessInfo.processInfo.environment["INSOMNIA_DEBUG_MENU"] == "throttled",
+              let row = menu.items.compactMap({ $0.view as? ThrottledAppsView }).first,
+              let icon = row.subviews.compactMap({ $0 as? NSButton }).first
+        else { return }
+        let timer = Timer(timeInterval: 2, repeats: false) { _ in
+            MainActor.assumeIsolated { icon.performClick(nil) }
+        }
+        RunLoop.main.add(timer, forMode: .eventTracking)
+    }
+    #endif
 
     private func menuItem(_ item: SessionMenu.Item) -> NSMenuItem {
         switch item {
@@ -273,7 +318,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let advanced = NSMenuItem(title: "Advanced settings\u{2026}", action: #selector(menuOpenAdvanced), keyEquivalent: "")
         advanced.target = self
         menu.addItem(advanced)
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
+        present(menu, from: button)
     }
 
     @objc private func menuOpenAdvanced() {
