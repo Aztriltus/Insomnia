@@ -10,8 +10,7 @@ final class UIStatusTests: XCTestCase {
         let root = StatusRootView(
             model: MenuBarModel(),
             manager: harness.makeManager(),
-            onWidthChange: { _ in },
-            onCountdownWidth: { _ in }
+            onWidthChange: { _ in }
         )
 
         let host = StatusItemController.makeHostingView(root)
@@ -21,78 +20,27 @@ final class UIStatusTests: XCTestCase {
         XCTAssertGreaterThan(host.fittingSize.height, 0)
     }
 
-    /// Every frame of an animated countdown is a content change, and AppKit
-    /// re-renders the whole status item on each one, about 23 ms of main
-    /// thread per frame. The 0.18 s spring that used to run here held the app
-    /// at about 46% of one core for the whole session, against 2.3% with no
-    /// animation. The tick must stay unanimated.
-    ///
-    /// This pins the constant only; the test below pins the view that has to
-    /// use it, since a transition re-added in the body animates the digits
-    /// with this still nil.
+    /// The status item is the eye alone: idle, starting, running with a
+    /// time limit and running without one all have the same width.
     @MainActor
-    func testTheCountdownDoesNotAnimateItsDigits() {
-        XCTAssertNil(Motion.countdownTick)
-    }
-
-    /// The digits must land in one step: the frame the text changes on
-    /// already reads the new value, exactly as a countdown rendered fresh
-    /// with that value would. The animated content transition this PR removed
-    /// (`.numericText(countsDown:)` under a 0.18 s spring) instead spends its
-    /// first frames rolling from the old digits, so the changed frame does
-    /// not match a fresh one. That is the regression: the cost is in AppKit
-    /// re-snapshotting the status item once per animated frame, and pinning
-    /// `Motion.countdownTick` to nil does not see a transition put back in
-    /// the view.
-    @MainActor
-    func testTheRenderedCountdownChangesItsDigitsInOneStep() async {
-        let h = Harness()
-        defer { h.home.destroy() }
-        let manager = h.makeManager()
-        // A change that keeps the text's width, so the frame compares the
-        // digits and nothing else.
-        await manager.start(duration: 43 * 60)
-        XCTAssertEqual(manager.countdownText, "43m")
+    func testTheStatusItemNeverChangesWidth() async {
+        let harness = Harness()
+        defer { harness.home.destroy() }
+        let manager = harness.makeManager()
         let model = MenuBarModel()
+        func width() -> CGFloat {
+            StatusItemController.makeHostingView(StatusRootView(model: model, manager: manager, onWidthChange: { _ in })).fittingSize.width
+        }
+        let idle = width()
+        model.phase = .starting
+        XCTAssertEqual(width(), idle)
+        await manager.start(duration: 26 * 3600)
         model.phase = .running
-
-        // The same view the controller installs, laid out at its own size and
-        // rasterised offscreen; no window and no run loop needed.
-        func makeHost() -> StatusHostingView {
-            let host = StatusItemController.makeHostingView(StatusRootView(
-                model: model,
-                manager: manager,
-                onWidthChange: { _ in },
-                onCountdownWidth: { _ in }
-            ))
-            host.frame = NSRect(origin: .zero, size: host.fittingSize)
-            return host
-        }
-        func snapshot(_ host: StatusHostingView) -> Data {
-            host.layoutSubtreeIfNeeded()
-            host.displayIfNeeded()
-            guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
-                XCTFail("the countdown did not rasterise")
-                return Data()
-            }
-            host.cacheDisplay(in: host.bounds, to: rep)
-            return rep.representation(using: .png, properties: [:]) ?? Data()
-        }
-
-        // One host across the change, so the frame after it is a frame of the
-        // same view mid-transition, not a view built with the new text.
-        let host = makeHost()
-        let before = snapshot(host)
-        h.clock.advance(60)
-        manager.refreshCountdown()
-        XCTAssertEqual(manager.countdownText, "42m")
-        // The very next frame, with no time for a spring to run.
-        let after = snapshot(host)
-        // And what that state looks like with no change to interpolate.
-        let fresh = snapshot(makeHost())
-
-        XCTAssertNotEqual(before, after, "the digits must change")
-        XCTAssertEqual(after, fresh, "the changed frame must already read the new digits, not roll to them")
+        XCTAssertEqual(width(), idle)
+        await manager.removeTimeLimit()
+        XCTAssertEqual(width(), idle)
+        model.needsAttention = true
+        XCTAssertEqual(width(), idle, "the attention dot sits on the eye")
     }
 
     /// The blink was over in a handful of frames and barely read. It has to
@@ -111,17 +59,15 @@ final class UIStatusTests: XCTestCase {
     }
 
     func testSleepHeldLine() {
-        XCTAssertEqual(
-            SleepHeldLine.line(sessionActive: true, sleepHeld: true),
-            SleepHeldLine.Line(text: "Sleep held per journal \u{2014} not verified live", isWarning: false)
-        )
+        // The normal case says nothing; the first line already says Active.
+        XCTAssertNil(SleepHeldLine.line(sessionActive: true, sleepHeld: true))
         XCTAssertEqual(
             SleepHeldLine.line(sessionActive: true, sleepHeld: false),
-            SleepHeldLine.Line(text: "Sleep is not held \u{2014} this session is not keeping the Mac awake", isWarning: true)
+            SleepHeldLine.Line(text: "Not keeping the Mac awake", isWarning: true)
         )
         XCTAssertEqual(
             SleepHeldLine.line(sessionActive: false, sleepHeld: true),
-            SleepHeldLine.Line(text: "Sleep still held with no session", isWarning: true)
+            SleepHeldLine.Line(text: "Sleep is still turned off", isWarning: true)
         )
         XCTAssertNil(SleepHeldLine.line(sessionActive: false, sleepHeld: false))
     }
@@ -183,7 +129,6 @@ final class UIStatusTests: XCTestCase {
             error: nil
         )
         XCTAssertEqual(items, [
-            StatusMenu.Item(title: "Sleep held per journal \u{2014} not verified live", kind: .info),
             StatusMenu.Item(title: "Lid: closed \u{00B7} 82%", kind: .info),
             StatusMenu.Item(title: "3 apps frozen", kind: .info),
             StatusMenu.Item(title: "Throttled", kind: .throttled([Self.chrome])),
@@ -218,7 +163,7 @@ final class UIStatusTests: XCTestCase {
             throttledBrowsers: [],
             error: "sudo: a password is required"
         )
-        XCTAssertEqual(items.first, StatusMenu.Item(title: "\u{26A0} sudo: a password is required", kind: .warning))
+        XCTAssertEqual(items.first, StatusMenu.Item(title: "sudo: a password is required", kind: .warning))
         XCTAssertEqual(items.map(\.kind), [.warning, .separator, .settings, .quit])
     }
 
@@ -237,10 +182,10 @@ final class UIStatusTests: XCTestCase {
         )
         XCTAssertEqual(
             items.map(\.kind),
-            [.info, .throttled([Self.chrome]), .warning, .warning, .separator, .settings, .quit]
+            [.throttled([Self.chrome]), .warning, .warning, .separator, .settings, .quit]
         )
-        XCTAssertEqual(items[2], StatusMenu.Item(
-            title: "\u{26A0} Hotspot password unreadable by this build: enter it again in Settings",
+        XCTAssertEqual(items[1], StatusMenu.Item(
+            title: "Hotspot password needs entering again in Settings",
             kind: .warning
         ))
         XCTAssertEqual(
@@ -253,11 +198,11 @@ final class UIStatusTests: XCTestCase {
     /// Settings notice except for a missing item, where the empty field is
     /// the notice.
     func testHotspotPasswordProblemCopy() {
-        XCTAssertEqual(HotspotPasswordProblem.missing.menuLine, "\u{26A0} Hotspot password not saved: enter it in Settings")
+        XCTAssertEqual(HotspotPasswordProblem.missing.menuLine, "Hotspot password missing. Add it in Settings")
         XCTAssertNil(HotspotPasswordProblem.missing.settingsNotice)
         XCTAssertTrue(HotspotPasswordProblem.unreadable.settingsNotice?.contains("Enter it again and save") ?? false)
         XCTAssertTrue(HotspotPasswordProblem.unreadable.explanation.hasSuffix("Enter it again in Settings."))
-        XCTAssertEqual(HotspotPasswordProblem.error("keychain: boom").menuLine, "\u{26A0} Hotspot password unreadable: keychain: boom")
+        XCTAssertEqual(HotspotPasswordProblem.error("keychain: boom").menuLine, "Hotspot password needs entering again in Settings", "the raw error stays out of the menu")
         XCTAssertEqual(HotspotPasswordProblem.error("keychain: boom").settingsNotice, "The saved password can't be read: keychain: boom")
         XCTAssertEqual(KeychainError(status: errSecAuthFailed).problem, .unreadable)
         XCTAssertEqual(KeychainError(status: errSecInteractionNotAllowed).problem, .unreadable)
@@ -329,7 +274,7 @@ final class UIStatusTests: XCTestCase {
         )
         XCTAssertEqual(
             items.map(\.kind),
-            [.info, .throttled([Self.chrome, Self.arc]), .separator, .settings, .quit]
+            [.throttled([Self.chrome, Self.arc]), .separator, .settings, .quit]
         )
     }
 }

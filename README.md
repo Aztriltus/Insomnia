@@ -112,8 +112,8 @@ file and explains how upgrades replace them.
    Insomnia restores that output if it reconnects while the app runs, or at
    the next launch.
 
-The menu bar shows the time left as `2d 5h`, `5h 12m` or `42m`, or `∞` for a
-session with no time limit. A session with no time limit keeps a rolling
+The menu bar shows only the eye: closed when inactive, open during a session.
+The menu's first line says when the session ends. A session with no time limit keeps a rolling
 deadline an hour ahead, so if Insomnia crashes, the recovery agent still puts
 sleep back within an hour.
 

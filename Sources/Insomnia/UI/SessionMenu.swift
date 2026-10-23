@@ -9,8 +9,8 @@ enum SessionMenu {
     enum State: Equatable, Sendable {
         case idle
         case starting
-        /// The last start was refused; `reason` is the manager's error.
-        case failed(reason: String)
+        /// The last start was refused.
+        case failed
         /// `choice` is the grid duration it was started with or switched
         /// to, nil when not known (a session an earlier build started).
         case running(endsAt: Date, choice: TimeInterval?)
@@ -48,7 +48,7 @@ enum SessionMenu {
     enum Item: Equatable, Sendable {
         /// The first line: "Inactive", "Active until 6:40 PM", …
         case status(String, active: Bool)
-        /// "Couldn't start: …", drawn as a warning.
+        /// "Couldn't start. Try again.", drawn as a warning.
         case failure(String)
         case grid(cells: [Cell], selected: Cell?, enabled: Bool)
         /// Only when a session runs and no cell is highlighted, so there is
@@ -85,8 +85,8 @@ enum SessionMenu {
             return [.status(inactiveTitle, active: false), .grid(cells: cells, selected: nil, enabled: true)]
         case .starting:
             return [.status(startingTitle, active: true), .grid(cells: cells, selected: nil, enabled: false)]
-        case let .failed(reason):
-            return [.status(inactiveTitle, active: false), .failure(failureLine(reason)), .grid(cells: cells, selected: nil, enabled: true)]
+        case .failed:
+            return [.status(inactiveTitle, active: false), .failure(failureLine), .grid(cells: cells, selected: nil, enabled: true)]
         case .openEnded:
             return [.status("Active, no time limit", active: true), .grid(cells: cells, selected: .openEnded, enabled: true)]
         case let .running(endsAt, _):
@@ -112,9 +112,8 @@ enum SessionMenu {
         }
     }
 
-    static func failureLine(_ reason: String) -> String {
-        "Couldn\u{2019}t start: \(reason)"
-    }
+    /// The reason is in the log; the menu says what happened and what to do.
+    static let failureLine = "Couldn\u{2019}t start. Try again."
 
     /// "until 6:40 PM" today, "until Sat 6:40 PM" within the week,
     /// "until Oct 30, 6:40 PM" after that.

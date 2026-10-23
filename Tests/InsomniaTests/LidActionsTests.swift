@@ -1126,7 +1126,7 @@ final class LidActionsTests: XCTestCase {
         XCTAssertFalse(h.audio.muted)
         XCTAssertEqual(try h.store.loadState()?.savedAudioOutputs.map(\.withoutSaveID), [Self.headsetSaved])
         let lines = StatusItemController.menuItems(manager: m, status: RecordingStatusSource()).map(\.title)
-        XCTAssertTrue(lines.contains("\u{26A0} USB Headset is still muted from a lid close; Insomnia restores it when it reconnects"), "\(lines)")
+        XCTAssertTrue(lines.contains("USB Headset is still muted"), "\(lines)")
         XCTAssertTrue(lines.contains("Stop waiting for USB Headset"), "\(lines)")
 
         // macOS keeps a device's mute, so the headset comes back muted.

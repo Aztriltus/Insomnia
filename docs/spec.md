@@ -28,30 +28,17 @@ It is meant for a Mac on a stable, ventilated surface, never in a closed bag.
 
 ## 2. Menu bar
 
-### Icon and countdown
+### The icon
+
+The status item is the eye alone. Its width never changes, so nothing else in the menu bar moves.
 
 | State | Menu bar shows | VoiceOver reads |
 | --- | --- | --- |
 | Idle | Closed eye | "Insomnia" |
-| Starting | Open eye and the time the session will have | "Insomnia, starting" |
-| Running | Open eye and the time left | "Insomnia, 5 hours 12 minutes left" |
-| Running with no time limit | Open eye and `∞` | "Insomnia, awake with no time limit" |
-| Start failed | Closed eye with a warning badge | "Insomnia, needs attention" |
-| Needs attention during a session | Open eye with a warning badge, countdown stays | adds ", needs attention" |
+| Starting or running | Open eye | "Insomnia, starting", "Insomnia, 5 hours 12 minutes left" or "Insomnia, awake with no time limit" |
+| Something needs attention | The eye with a small orange dot | adds ", needs attention" |
 
-The time left shows one or two units and never seconds:
-
-| Time left | Shows |
-| --- | --- |
-| 3 days 4 hours 20 minutes | `3d 4h` |
-| 3 days 0 hours | `3d` |
-| 5 hours 12 minutes | `5h 12m` |
-| 5 hours 0 minutes | `5h` |
-| 42 minutes 10 seconds | `43m` |
-| 20 seconds | `1m` |
-
-- Time rounds up to the minute, so the bar never reads `0m` while a session runs.
-- The text changes once a minute. Its width only grows during a session, except when it drops from days to hours or hours to minutes, so the menu bar doesn't jiggle.
+- The time left is in the menu's first line ("Active until 6:40 PM"), not in the menu bar.
 - The eye blinks open and closed. With Reduce Motion on, it crossfades instead.
 
 ### The menu
@@ -73,14 +60,14 @@ Quit Insomnia            ⌘Q
 ```
 
 - **The first line** says whether Insomnia is keeping the Mac awake: "Inactive", "Starting…", "Active until 6:40 PM" (or "Sat 6:40 PM", or "Oct 30, 6:40 PM" when further out), or "Active, no time limit". It isn't clickable.
-- **The grid** is ∞ (no time limit) and the durations from Settings, 10m, 30m, 1h, 2h, 4h, 8h and 12h by default, four to a row.
+- **The grid** is ∞ (no time limit) and the durations from Settings, 10m, 30m, 1h, 2h, 4h, 8h and 12h by default, four to a row. The menu stays open after a click; the first line and the highlight update in place.
   - With nothing running, clicking a cell starts that session.
   - While a session runs, its cell is highlighted. Clicking another cell switches to it: the session then ends that long from now, or has no time limit for ∞. Clicking the highlighted cell ends the session.
   - While starting, the grid is greyed out.
   - A running session with no matching cell (one a durations change has removed, say) gets an End session item under the grid.
-- **Start failed:** "Couldn't start: reason" shows under the first line until the next successful start, or until the menu has been opened and closed once.
+- **Start failed:** "Couldn't start. Try again." shows under the first line until the next successful start, or until the menu has been opened and closed once. The reason is in the log.
 - **Throttled:** a throttled browser shows as its icon, with no label, under a "Throttled" heading. Clicking the icon offers "Relaunch unthrottled" and "Advanced settings…".
-- **Other lines** show only when something needs attention: sleep held with no session, paused apps, Docker, a hotspot password problem, a recovery problem, a command still running, and sound still muted on a disconnected output (with "Stop waiting for …").
+- **Other lines** show only when something needs attention, in plain words: "Not keeping the Mac awake", "Sleep is still turned off", "Hotspot password missing. Add it in Settings", "Hotspot password needs entering again in Settings", "Something went wrong. Details are in the log", "A power command is stuck", "Another app has turned sleep off", "Couldn't relaunch the browser", and "Headphones is still muted" with "Stop waiting for Headphones". No status or diagnostic lines are shown when all is well.
 - **Quit** undoes the session first, and refuses while a change is still waiting to be undone.
 
 ### Durations

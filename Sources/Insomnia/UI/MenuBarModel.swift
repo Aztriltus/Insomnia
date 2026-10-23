@@ -15,18 +15,10 @@ final class MenuBarModel {
     }
 
     var phase: Phase = .idle
-    /// The manager's reason for the last refused start. Shown as a badge on
-    /// the eye and as the menu's first line until the next start succeeds,
-    /// or the menu has been opened and closed once.
-    var startFailure: String?
-    /// What the countdown reads while a start is pending: the time the
-    /// session will have.
-    var pendingCountdown: String?
+    /// The last start was refused. Shown as a badge on the eye and a line in
+    /// the menu until the next start succeeds, or the menu has been opened
+    /// and closed once.
+    var startFailure = false
     /// Something in the menu needs attention (an error, a recovery problem).
     var needsAttention = false
-    /// The widest the countdown text has been at its current level, so the
-    /// status item only grows during a session (redesign spec, "Keeping the
-    /// width steady"). Reset when the session ends or the level drops.
-    var countdownMinWidth: CGFloat = 0
-    var countdownLevel: CountdownFormat.Level?
 }

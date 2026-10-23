@@ -32,9 +32,9 @@ final class SessionMenuTests: XCTestCase {
     }
 
     func testAFailedStartSaysWhyUnderTheInactiveLine() {
-        XCTAssertEqual(items(.failed(reason: "could not arm backstop: no")), [
+        XCTAssertEqual(items(.failed), [
             .status("Inactive", active: false),
-            .failure("Couldn\u{2019}t start: could not arm backstop: no"),
+            .failure("Couldn\u{2019}t start. Try again."),
             .grid(cells: cells, selected: nil, enabled: true),
         ])
     }
@@ -60,7 +60,7 @@ final class SessionMenuTests: XCTestCase {
 
     func testClicking() {
         XCTAssertEqual(SessionMenu.action(for: .duration(600), in: .idle), .start(.duration(600)))
-        XCTAssertEqual(SessionMenu.action(for: .openEnded, in: .failed(reason: "x")), .start(.openEnded))
+        XCTAssertEqual(SessionMenu.action(for: .openEnded, in: .failed), .start(.openEnded))
         XCTAssertEqual(SessionMenu.action(for: .duration(600), in: .starting), .none)
         let running = SessionMenu.State.running(endsAt: now, choice: 3600)
         XCTAssertEqual(SessionMenu.action(for: .duration(3600), in: running), .end, "the highlighted cell ends it")
@@ -81,16 +81,6 @@ final class SessionMenuTests: XCTestCase {
         XCTAssertTrue(later.hasPrefix("until May 28, "), later)
     }
 
-    @MainActor
-    func testTheCountdownWidthOnlyGrowsWithinALevel() {
-        typealias C = StatusItemController
-        XCTAssertEqual(C.reservedCountdownWidth(current: 0, currentLevel: nil, measured: 40.2, level: .hours)?.width, 41)
-        XCTAssertNil(C.reservedCountdownWidth(current: 41, currentLevel: .hours, measured: 20, level: .hours), "never shrinks within a level")
-        XCTAssertEqual(C.reservedCountdownWidth(current: 41, currentLevel: .hours, measured: 45, level: .hours)?.width, 45)
-        let dropped = C.reservedCountdownWidth(current: 45, currentLevel: .hours, measured: 22, level: .minutes)
-        XCTAssertEqual(dropped?.width, 22)
-        XCTAssertEqual(dropped?.level, .minutes)
-    }
 }
 
 /// Starting from the menu, through the manager's answer, with the
@@ -133,13 +123,11 @@ final class MenuBarFlowTests: XCTestCase {
         rig.controller.start(.timed(4 * 3600))
         await gate.waitUntilStarted()
         XCTAssertEqual(rig.model.phase, .starting)
-        XCTAssertEqual(rig.model.pendingCountdown, "4h")
         XCTAssertEqual(rig.controller.menuState, .starting)
 
         await gate.open()
         let ok = await waitUntil { rig.manager.isActive && rig.model.phase == .running }
         XCTAssertTrue(ok)
-        XCTAssertNil(rig.model.pendingCountdown)
         XCTAssertEqual(rig.manager.countdownText, "4h")
         XCTAssertEqual(rig.controller.menuState, .running(endsAt: rig.manager.session!.endsAt, choice: 4 * 3600))
     }
@@ -151,19 +139,17 @@ final class MenuBarFlowTests: XCTestCase {
         rig.h.backstop.failArm = true
 
         rig.controller.start(.timed(3600))
-        let failed = await waitUntil { rig.model.phase == .idle && rig.model.startFailure != nil }
+        let failed = await waitUntil { rig.model.phase == .idle && rig.model.startFailure }
         XCTAssertTrue(failed)
         XCTAssertFalse(rig.manager.isActive)
-        guard case let .failed(reason) = rig.controller.menuState else {
-            return XCTFail("expected the failed menu, got \(rig.controller.menuState)")
-        }
-        XCTAssertTrue(reason.contains("backstop"), reason)
+        XCTAssertEqual(rig.controller.menuState, .failed)
+        // The raw reason goes to the log, not the menu.
         // The status lines don't repeat it.
         XCTAssertFalse(StatusItemController.menuItems(manager: rig.manager, status: PlaceholderStatus()).contains { $0.title.contains("backstop") })
 
         // Seen once in the menu, it goes.
         rig.controller.menuDidClose(NSMenu())
-        XCTAssertNil(rig.model.startFailure)
+        XCTAssertFalse(rig.model.startFailure)
         XCTAssertEqual(rig.controller.menuState, .idle)
     }
 
@@ -173,12 +159,12 @@ final class MenuBarFlowTests: XCTestCase {
         defer { rig.h.home.destroy() }
         rig.h.backstop.failArm = true
         rig.controller.start(.timed(3600))
-        _ = await waitUntil { rig.model.startFailure != nil }
+        _ = await waitUntil { rig.model.startFailure }
         rig.h.backstop.failArm = false
         rig.controller.start(.timed(3600))
         let ok = await waitUntil { rig.manager.isActive && rig.model.phase == .running }
         XCTAssertTrue(ok)
-        XCTAssertNil(rig.model.startFailure)
+        XCTAssertFalse(rig.model.startFailure)
     }
 
     @MainActor

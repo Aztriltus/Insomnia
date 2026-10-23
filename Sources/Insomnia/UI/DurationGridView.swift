@@ -54,9 +54,10 @@ final class DurationGridView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    /// The menu stays open: the controller rebuilds the grid with the new
+    /// highlight once the session has changed.
     @objc private func tapped(_ sender: NSButton) {
         guard let entry = buttons.first(where: { $0.0 === sender }) else { return }
-        enclosingMenuItem?.menu?.cancelTracking()
         onTap(entry.1)
     }
 }

@@ -40,23 +40,26 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 
 ## Menu bar
 
-**Where it stands:** clicking the eye opens a short menu. Its first line says Active or Inactive and isn't clickable. Under it is a 4×2 grid of ∞, 10m, 30m, 1h, 2h, 4h, 8h and 12h: a cell starts or switches the session, and the highlighted cell ends it. There's no custom-time field and no lid, watts, battery or Wi-Fi line. The countdown shows at most two units with suffixes and no seconds.
+**Where it stands:** the menu bar shows the eye alone, at one fixed width. Clicking it opens a short menu. Its first line says Active or Inactive and isn't clickable. Under it is a 4×2 grid of ∞, 10m, 30m, 1h, 2h, 4h, 8h and 12h: a cell starts or switches the session, the highlighted cell ends it, and the menu stays open meanwhile. Only lines that need attention are shown, in plain words.
 
-**Replaced:** a menu of templates with a custom-time field and Save as template (2026-10-23) → a grid with no custom field (2026-10-24).
+**Replaced:** a menu of templates with a custom-time field and Save as template (2026-10-23) → a grid with no custom field (2026-10-24) · a two-unit countdown in the menu bar (2026-10-23) → the eye alone (2026-10-24).
 
 <details>
-<summary>8 decisions</summary>
+<summary>11 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
 | 2026-10-23 | **Clicking the icon opens a menu of templates (minutes, hours, days) to start a session, with a field to type a custom time and a way to save a new template.** **Superseded 2026-10-24** | The owner's brief. | Upstream's typed Days / Hours / Minutes fields in the menu bar. |
-| 2026-10-23 | **The countdown shows at most two units and never seconds: days and hours, hours and minutes, or minutes.** | "Makes more sense to show maybe up to 2 values." | Seconds. |
-| 2026-10-23 | **Units are written as suffixes: `2d 5h`, `5h 12m`, `42m`, `1m`.** | `02:05` is ambiguous between days and hours and hours and minutes. | Colons (`DD:HH`, `HH:MM`). |
+| 2026-10-23 | **The countdown shows at most two units and never seconds: days and hours, hours and minutes, or minutes.** **Superseded 2026-10-24** | "Makes more sense to show maybe up to 2 values." | Seconds. |
+| 2026-10-23 | **Units are written as suffixes: `2d 5h`, `5h 12m`, `42m`, `1m`.** **Superseded 2026-10-24** | `02:05` is ambiguous between days and hours and hours and minutes. | Colons (`DD:HH`, `HH:MM`). |
 | 2026-10-24 | **The menu's durations are a grid: ∞, 10m, 30m, 1h, 2h, 4h, 8h, 12h. No custom-time field.** | The custom field and the list "made the menu too long when clicked". | A list of templates; typing a custom time in the menu. |
 | 2026-10-24 | **The first line is not clickable and says whether a session is active.** | Owner's request. | A header that repeats the end time only. |
 | 2026-10-24 | **Grid cells toggle: clicking one starts or switches to it, and it's highlighted; clicking the highlighted cell ends the session. No separate End button.** | Chosen from two options. | Clicking the eye starts ∞ at once, with a separate End session item. |
 | 2026-10-24 | **The lid, watts, battery and Wi-Fi line is left out of the menu.** | "Don't think we need the long line in the menu." | Keeping it. |
 | 2026-10-24 | **Throttled browsers show as a "Throttled" heading over their icons, with no labels; clicking an icon offers Relaunch unthrottled or Advanced settings.** | Owner's request. | A warning line plus one "Relaunch … unthrottled" item per browser. |
+| 2026-10-24 | **The menu bar shows the eye alone and never gets wider; no countdown.** | "The menu should stay as a single icon. Shouldn't get wider at all." | A two-unit countdown next to the eye. |
+| 2026-10-24 | **The menu stays open after a grid cell is clicked; the first line and highlight update in place.** | Owner's request. | Closing the menu on each choice. |
+| 2026-10-24 | **The menu leaves out status and diagnostic lines (journal state, paused-app counts, raw errors) and shows only what needs attention, in plain words.** | "Should omit any slop labels in the dropdown menu." | "Sleep held per journal — not verified live", "3 apps frozen · last gap", raw error text. |
 
 </details>
 

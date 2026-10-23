@@ -1,11 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// Owns the NSStatusItem. The status bar button hosts a SwiftUI view (the
-/// eye and the countdown); any click on it opens one native menu
-/// (`SessionMenu` for starting, adding and ending, then `StatusMenu`'s status
-/// lines, Settings and Quit). The item's length is written once per width
-/// change (`StatusWidthWriter`).
+/// Owns the NSStatusItem: the eye, at one fixed width. Any click on it opens
+/// one native menu (`SessionMenu`'s first line and grid, then `StatusMenu`'s
+/// lines, Settings and Quit). The menu stays open while a grid cell is used,
+/// and its first line and highlight update in place.
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
     /// Builds the width writer over `apply` (which sets the item's length);
@@ -28,8 +27,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private var hostingView: StatusHostingView?
     private var widthWriter: StatusWidthWriter?
-    /// The width the status item is heading for.
     private(set) var widthTarget: CGFloat = 0
+    /// The menu while it is open, and how many items at its top belong to
+    /// the session part, which is rebuilt in place when the state changes.
+    private var openMenu: NSMenu?
+    private var sessionItemCount = 0
     /// A throttled browser's icon was clicked in the open menu; its own
     /// menu opens once that one has closed.
     private var pendingThrottled: ThrottledBrowser?
@@ -89,12 +91,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         guard let button = statusItem.button else { return }
         let apply: (CGFloat) -> Void = { [statusItem] width in statusItem.length = width }
         widthWriter = makeWidthWriter?(apply) ?? StatusWidthWriter(apply: apply)
-        let root = StatusRootView(
-            model: model,
-            manager: manager,
-            onWidthChange: { [weak self] w in self?.retargetWidth(w) },
-            onCountdownWidth: { [weak self] w in self?.countdownWidthChanged(w) }
-        )
+        let root = StatusRootView(model: model, manager: manager) { [weak self] w in self?.retargetWidth(w) }
         let host = Self.makeHostingView(root)
         host.onClick = { [weak self] in self?.showMenu() }
         host.translatesAutoresizingMaskIntoConstraints = true
@@ -117,39 +114,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         return host
     }
 
-    /// Set the item's length to `width`, once per change.
+    /// The eye's width, written once: it never changes after that.
     private func retargetWidth(_ width: CGFloat) {
         let w = max(width.rounded(.up), 24)
         guard w != widthTarget else { return }
         widthTarget = w
         if let host = hostingView { host.frame.size.width = w }
         widthWriter?.write(w)
-    }
-
-    /// Keep the countdown's width from shrinking within a level; reset it
-    /// when the level drops or the session ends.
-    private func countdownWidthChanged(_ width: CGFloat) {
-        let level = manager.session.map { s -> CountdownFormat.Level? in
-            s.openEnded ? nil : CountdownFormat.level(remaining: s.remaining(at: clock()))
-        } ?? nil
-        if let reserved = Self.reservedCountdownWidth(current: model.countdownMinWidth, currentLevel: model.countdownLevel, measured: width, level: level) {
-            model.countdownMinWidth = reserved.width
-            model.countdownLevel = reserved.level
-        }
-    }
-
-    /// The countdown's reserved width: grows with the text, never shrinks
-    /// within a level, and starts over at a new (lower) level. nil when
-    /// nothing changes. Pure.
-    static func reservedCountdownWidth(
-        current: CGFloat,
-        currentLevel: CountdownFormat.Level?,
-        measured: CGFloat,
-        level: CountdownFormat.Level?
-    ) -> (width: CGFloat, level: CountdownFormat.Level?)? {
-        let w = measured.rounded(.up)
-        if level != currentLevel { return (w, level) }
-        return w > current ? (w, level) : nil
     }
 
     // MARK: Manager observation
@@ -180,14 +151,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if manager.isActive {
             if model.phase != .running {
                 model.phase = .running
-                model.pendingCountdown = nil
-                model.startFailure = nil
+                model.startFailure = false
             }
         } else if model.phase == .running {
             model.phase = .idle
-            model.countdownMinWidth = 0
-            model.countdownLevel = nil
         }
+        refreshOpenMenu()
     }
 
     // MARK: Menu
@@ -196,7 +165,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     var menuState: SessionMenu.State {
         if model.phase == .starting { return .starting }
         if let s = manager.session { return s.openEnded ? .openEnded : .running(endsAt: s.endsAt, choice: s.choice) }
-        if let failure = model.startFailure { return .failed(reason: failure) }
+        if model.startFailure { return .failed }
         return .idle
     }
 
@@ -209,9 +178,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.delegate = self
-        for item in SessionMenu.items(state: menuState, durations: manager.config.durations, now: clock()) {
+        let session = SessionMenu.items(state: menuState, durations: manager.config.durations, now: clock())
+        for item in session {
             menu.addItem(menuItem(item))
         }
+        sessionItemCount = session.count
         menu.addItem(.separator())
         let tail = StatusMenu.menu(
             Self.menuItems(manager: manager, status: status),
@@ -229,11 +200,27 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             tail.removeItem(item)
             menu.addItem(item)
         }
+        openMenu = menu
         present(menu, from: button)
+        openMenu = nil
         if let browser = pendingThrottled {
             pendingThrottled = nil
             showThrottledMenu(browser)
         }
+    }
+
+    /// Rebuilds the session part of the open menu (the first line, the
+    /// grid and End session) for the state now. The menu stays open.
+    private func refreshOpenMenu() {
+        guard let menu = openMenu else { return }
+        for _ in 0..<min(sessionItemCount, menu.items.count) {
+            menu.removeItem(at: 0)
+        }
+        let session = SessionMenu.items(state: menuState, durations: manager.config.durations, now: clock())
+        for (i, item) in session.enumerated() {
+            menu.insertItem(menuItem(item), at: i)
+        }
+        sessionItemCount = session.count
     }
 
     /// Opens `menu` where macOS puts a status item's menu, under the item
@@ -248,7 +235,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     #if DEBUG
-    /// Debug builds only: `INSOMNIA_DEBUG_MENU=open` opens the menu two
+    /// Debug builds only: `INSOMNIA_DEBUG_MENU=open` opens the menu six
     /// seconds after launch, so its rendering can be captured without a
     /// mouse; `=throttled` also clicks the first throttled browser's icon.
     private func debugAtLaunch() {
@@ -257,6 +244,26 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private func debugWhileOpen(_ menu: NSMenu) {
+        if ProcessInfo.processInfo.environment["INSOMNIA_DEBUG_MENU"] == "refresh" {
+            // Walks the open menu through starting and a refused start, with
+            // no session, to show it updates in place.
+            let starting = Timer(timeInterval: 2, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.model.phase = .starting
+                    self?.refreshOpenMenu()
+                }
+            }
+            let failed = Timer(timeInterval: 5, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.model.phase = .idle
+                    self?.model.startFailure = true
+                    self?.refreshOpenMenu()
+                }
+            }
+            RunLoop.main.add(starting, forMode: .eventTracking)
+            RunLoop.main.add(failed, forMode: .eventTracking)
+            return
+        }
         guard ProcessInfo.processInfo.environment["INSOMNIA_DEBUG_MENU"] == "throttled",
               let row = menu.items.compactMap({ $0.view as? ThrottledAppsView }).first,
               let icon = row.subviews.compactMap({ $0 as? NSButton }).first
@@ -298,8 +305,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     func menuDidClose(_ menu: NSMenu) {
         // A start failure is shown until the menu has been seen once.
-        if model.startFailure != nil, !manager.isActive, model.phase == .idle {
-            model.startFailure = nil
+        if model.startFailure, !manager.isActive, model.phase == .idle {
+            model.startFailure = false
         }
     }
 
@@ -328,7 +335,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     // MARK: Session actions
 
-    /// A grid cell was clicked (`SessionMenu.action`).
+    /// A grid cell was clicked (`SessionMenu.action`). The menu stays open.
     func gridTapped(_ cell: SessionMenu.Cell) {
         switch SessionMenu.action(for: cell, in: menuState) {
         case let .start(.duration(d)): start(.timed(d))
@@ -351,26 +358,21 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     func start(_ choice: StartChoice) {
         guard !manager.isActive, model.phase != .starting else { return }
-        model.startFailure = nil
+        model.startFailure = false
         model.phase = .starting
-        switch choice {
-        case let .timed(d):
-            model.pendingCountdown = CountdownFormat.text(remaining: SessionMath.clamp(d, maxDuration: manager.config.maxDuration))
-        case .openEnded:
-            model.pendingCountdown = CountdownFormat.openEnded
-        }
+        refreshOpenMenu()
         Task { @MainActor in
             switch choice {
             case let .timed(d): await manager.start(duration: d)
             case .openEnded: await manager.startOpenEnded()
             }
-            model.pendingCountdown = nil
             if manager.isActive {
                 model.phase = .running
             } else {
                 model.phase = .idle
-                model.startFailure = manager.lastError ?? "the session could not be started"
+                model.startFailure = true
             }
+            refreshOpenMenu()
         }
     }
 
@@ -382,28 +384,23 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     // MARK: Status lines
 
-    /// The menu's status lines from what the session and the status source
-    /// report now. Static, so a test can check them without a status item.
+    /// The menu's lines below the grid, in plain words. Only what needs
+    /// attention is shown; detail is in the log. Static, so a test can check
+    /// them without a status item.
     static func menuItems(manager: SessionManager, status: any StatusSource) -> [StatusMenu.Item] {
         StatusMenu.items(
             sessionActive: manager.isActive,
             sleepHeld: manager.state.sleepDisabledByUs,
-            // The lid, watts, battery and Wi-Fi line is left out: the menu
-            // is for starting and stopping, and that line only made it long.
             machine: nil,
-            actions: StatusLines.actions(
-                frozenCount: status.frozenCount,
-                dockerPaused: status.dockerPaused,
-                lastGap: status.lastGap
-            ),
+            actions: nil,
             throttledBrowsers: status.throttledBrowsers,
-            relaunchProblems: status.relaunchProblems,
+            relaunchProblems: status.relaunchProblems.isEmpty ? [] : ["Couldn\u{2019}t relaunch the browser"],
             // A report about an SSID edited away since is not shown.
             hotspotWarning: status.hotspotPasswordReport?.problem(for: manager.config.hotspotSSID)?.menuLine,
             // A refused start has its own line at the top of the menu.
-            error: manager.isActive ? manager.lastError : nil,
-            commandRunning: manager.commandWarning,
-            foreignSleep: manager.foreignSleepWarning,
+            error: manager.isActive && manager.lastError != nil ? "Something went wrong. Details are in the log" : nil,
+            commandRunning: manager.commandWarning == nil ? nil : "A power command is stuck",
+            foreignSleep: manager.foreignSleepWarning == nil ? nil : "Another app has turned sleep off",
             outputsWaiting: manager.outputsWaitingForRestore,
             lidSimulationBuild: LidSimulationBuild.isCompiledIn
         )

@@ -82,7 +82,7 @@ enum StatusMenu {
             out.append(Item(title: throttledTitle, kind: .throttled(throttledBrowsers)))
         }
         for problem in relaunchProblems.compactMap(present) {
-            out.append(Item(title: "\u{26A0} \(problem)", kind: .warning))
+            out.append(Item(title: problem, kind: .warning))
         }
         if let hotspot = present(hotspotWarning) {
             out.append(Item(title: hotspot, kind: .warning))
@@ -91,18 +91,18 @@ enum StatusMenu {
         // holds every change and quit until it exits, and the line goes
         // away then.
         if let command = present(commandRunning) {
-            out.append(Item(title: "\u{26A0} \(command)", kind: .warning))
+            out.append(Item(title: command, kind: .warning))
         }
         if let error = present(error) {
-            out.append(Item(title: "\u{26A0} \(error)", kind: .warning))
+            out.append(Item(title: error, kind: .warning))
         }
         // Its own line, after the error: a restore that failed and a bit
         // someone else set can both be true of the same reconcile.
         if let foreignSleep = present(foreignSleep) {
-            out.append(Item(title: "\u{26A0} \(foreignSleep)", kind: .warning))
+            out.append(Item(title: foreignSleep, kind: .warning))
         }
         for waiting in outputsWaiting {
-            out.append(Item(title: "\u{26A0} \(SessionManager.stillMutedLine(waiting))", kind: .warning))
+            out.append(Item(title: "\(waiting.label) is still muted", kind: .warning))
             out.append(Item(title: "Stop waiting for \(waiting.label)", kind: .stopWaitingForOutput(waiting)))
         }
         if !out.isEmpty {

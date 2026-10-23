@@ -192,11 +192,9 @@ enum HotspotPasswordProblem: Equatable, Sendable {
     var menuLine: String {
         switch self {
         case .missing:
-            "\u{26A0} Hotspot password not saved: enter it in Settings"
-        case .unreadable:
-            "\u{26A0} Hotspot password unreadable by this build: enter it again in Settings"
-        case let .error(message):
-            "\u{26A0} Hotspot password unreadable: \(message)"
+            "Hotspot password missing. Add it in Settings"
+        case .unreadable, .error:
+            "Hotspot password needs entering again in Settings"
         }
     }
 
