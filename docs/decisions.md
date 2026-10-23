@@ -127,6 +127,10 @@ These came from Claude after the review, not from the owner. Confirm or change e
 - A session with no time limit is a rolling 60-minute deadline renewed every 15 minutes, so a crash puts sleep back within an hour.
 - The menu bar shows `∞` for a session with no time limit.
 - "Remove time limit" and "Set a time limit" switch a running session between the two kinds; a new limit counts from now.
+- The internet check uses HTTPS, so no App Transport Security exception is needed.
+- The custom field shows its action and Save as template inside its own row, not as separate menu rows.
+- While starting, the menu shows only "Starting…", the status lines, Settings and Quit.
+- "Try now" is deferred; setup never joins.
 
 ## Open questions
 

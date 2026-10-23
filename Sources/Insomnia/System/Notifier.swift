@@ -88,6 +88,27 @@ final class ForegroundNotifications: NSObject, UNUserNotificationCenterDelegate,
     static func install() {
         guard Notifier.runningInsideAppBundle() else { return }
         UNUserNotificationCenter.current().delegate = shared
+        let addHour = UNNotificationAction(identifier: addHourAction, title: "Add 1 hour", options: [])
+        UNUserNotificationCenter.current().setNotificationCategories([
+            UNNotificationCategory(identifier: reminderCategory, actions: [addHour], intentIdentifiers: []),
+        ])
+    }
+
+    /// The 5-minutes-left reminder's category, which carries Add 1 hour.
+    static let reminderCategory = "insomnia.reminder"
+    static let addHourAction = "insomnia.addHour"
+    /// Posted on the main queue when Add 1 hour is pressed; the status item
+    /// controller extends the session.
+    static let addHourPressed = Notification.Name("InsomniaAddHourPressed")
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard response.actionIdentifier == Self.addHourAction else { return }
+        await MainActor.run {
+            NotificationCenter.default.post(name: Self.addHourPressed, object: nil)
+        }
     }
 
     func userNotificationCenter(

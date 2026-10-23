@@ -758,6 +758,9 @@ final class NetworkFailover {
     /// for want of a readable password, nil once a read succeeds or the
     /// password is saved again.
     var onPasswordReport: ((HotspotPasswordReport?) -> Void)?
+    /// A join finished: worked (with the address joined) or the password
+    /// was refused. AppServices records it in config.json.
+    var onJoinResult: ((HotspotJoinRecord.Result, String?) -> Void)?
 
     private(set) var machine = FailoverMachine()
     private(set) var wifiInterface: String?
@@ -785,6 +788,16 @@ final class NetworkFailover {
 
     private var monitor: NWPathMonitor?
     private(set) var retryTimer: Timer?
+    /// "Connected but no internet" (redesign spec, section 3): the
+    /// captive-portal check runs after a path change while Wi-Fi is up, and
+    /// again every `InternetCheckCounter.spacing` while it fails; three
+    /// failures count as an outage.
+    private var internetChecks = InternetCheckCounter()
+    private var internetCheckTask: Task<Void, Never>?
+    /// The current outage was started by failed checks, not a dropped path:
+    /// a passing check ends it.
+    private var outageFromCheck = false
+    private let internetCheck: @Sendable () async -> Bool
     private var generation = 0
     /// Bumped by `stop()`. Work that started under an older epoch (a
     /// recovery mid-nudge) stops issuing commands as soon as it notices.
@@ -808,8 +821,10 @@ final class NetworkFailover {
         notifier: any Notifying,
         wifiInterface: String? = nil,
         clock: @escaping @Sendable () -> Date = { Date() },
+        internetCheck: @escaping @Sendable () async -> Bool = NetworkFailover.liveInternetCheck,
         config: @escaping @MainActor () -> Config
     ) {
+        self.internetCheck = internetCheck
         self.paths = paths
         self.keychain = keychain
         self.keychainQueue = keychainQueue
@@ -835,6 +850,7 @@ final class NetworkFailover {
                 // An update queued before stop() must not revive the driver.
                 guard let self, let current = self.monitor, ObjectIdentifier(current) == id else { return }
                 self.handlePath(satisfied: satisfied)
+                self.pathChangedForInternetCheck(satisfied: satisfied)
             }
         }
         m.start(queue: .main)
@@ -845,6 +861,10 @@ final class NetworkFailover {
     func stop() {
         monitor?.cancel()
         monitor = nil
+        internetCheckTask?.cancel()
+        internetCheckTask = nil
+        internetChecks.reset()
+        outageFromCheck = false
         cancelTimer()
         for task in inflight.values { task.cancel() }
         inflight.removeAll()
@@ -998,6 +1018,11 @@ final class NetworkFailover {
             Log.info("hotspot join skipped: no hotspotSSID configured")
             return
         }
+        // A password the network refused is not retried until it changes.
+        guard config.hotspotLastJoin?.result != .rejected else {
+            Log.info("hotspot join skipped: the saved password was refused; waiting for a new one")
+            return
+        }
         guard let iface = wifiInterface else {
             Log.error("hotspot join skipped: no Wi-Fi interface")
             return
@@ -1047,9 +1072,18 @@ final class NetworkFailover {
         }
         Log.info("joining hotspot \(ssid) on \(iface) (attempt \(machine.joins))")
         do {
-            let joined = try await hotspotJoiner.join(ssid: ssid, password: password, interfaceName: iface)
-            if !joined {
+            switch try await hotspotJoiner.join(saved: config.savedHotspot, password: password, interfaceName: iface) {
+            case let .joined(bssid):
+                Log.info("joined hotspot \(ssid)")
+                onJoinResult?(.worked, bssid)
+            case .notFound:
                 Log.error("CoreWLAN scan found no network for hotspot \(ssid); retrying with backoff")
+            case .rejected:
+                Log.error("hotspot \(ssid) refused the saved password; not retrying until it changes")
+                onJoinResult?(.rejected, nil)
+                if notifiedThisOutage.insert(ssid).inserted {
+                    notifier.post(title: "Hotspot password didn\u{2019}t work", body: "The hotspot password didn\u{2019}t work. Update it in Settings.")
+                }
             }
         } catch {
             Log.error("CoreWLAN hotspot join failed: \(error.localizedDescription)")
@@ -1092,6 +1126,65 @@ final class NetworkFailover {
         // A stopped driver must not write into the next session's status.
         guard self.epoch == epoch else { return }
         onRecovered?(gap)
+    }
+
+    // MARK: Internet check
+
+    /// Apple's captive-portal page over HTTPS: a portal or a dead uplink
+    /// fails it. Ephemeral, 5 s, no cookies, nothing about the Mac sent.
+    static let internetCheckURL = URL(string: "https://captive.apple.com/hotspot-detect.html")!
+
+    static let liveInternetCheck: @Sendable () async -> Bool = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 5
+        configuration.timeoutIntervalForResource = 5
+        configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        do {
+            let (data, response) = try await session.data(from: internetCheckURL)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }
+            return InternetCheckCounter.passes(body: String(decoding: data, as: UTF8.self))
+        } catch {
+            return false
+        }
+    }
+
+    /// A path change: with Wi-Fi up, check the internet; with it down, the
+    /// path itself is the outage.
+    private func pathChangedForInternetCheck(satisfied: Bool) {
+        internetCheckTask?.cancel()
+        internetCheckTask = nil
+        internetChecks.reset()
+        if !satisfied {
+            outageFromCheck = false
+            return
+        }
+        let epoch = self.epoch
+        internetCheckTask = Task { @MainActor [weak self] in
+            while let self, !Task.isCancelled, self.epoch == epoch {
+                let passed = await self.internetCheck()
+                guard !Task.isCancelled, self.epoch == epoch else { return }
+                if passed {
+                    self.internetChecks.reset()
+                    if self.outageFromCheck {
+                        self.outageFromCheck = false
+                        Log.info("internet check passed; ending the no-internet outage")
+                        await self.process(satisfied: true)
+                    }
+                    return
+                }
+                if self.internetChecks.record(passed: false) {
+                    Log.info("internet check failed \(InternetCheckCounter.threshold) times; treating Wi-Fi as down")
+                    self.outageFromCheck = true
+                    await self.process(satisfied: false)
+                }
+                // While the outage lasts, check every 30 s for the internet
+                // coming back on the same network.
+                let wait = self.outageFromCheck ? 30 : InternetCheckCounter.spacing
+                try? await Task.sleep(for: .seconds(wait))
+            }
+        }
     }
 
     /// Owner-only, rotated to handoffs.log.1 past OwnerOnly.maxLogBytes.

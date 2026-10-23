@@ -89,7 +89,7 @@ Measured upstream, before the fork. These are engineering facts, not owner decis
 
 ## Redesign implementation
 
-[redesign-spec.md](redesign-spec.md) §7 lists what goes, what's new and what changes; §8 lists the tests.
+Built on 2026-10-24 (branch `feat/redesign`). [redesign-spec.md](redesign-spec.md) §7 lists what went, what's new and what changed; its "Build notes" list where the build differs.
 
 - **Pure types:** `CountdownFormat`, `DurationParser`, `DurationLabel`, `TemplateList`, `InstalledApps` (filtering), `HotspotMatcher`, and the v1 → v2 config migration. Each is unit tested and mutation-checked.
 - **UI:**
@@ -99,7 +99,9 @@ Measured upstream, before the fork. These are engineering facts, not owner decis
   - New sheets: `AppPickerSheet` and `HotspotSetupSheet`.
 - **No time limit:** a rolling deadline. The session's end time is kept 60 minutes ahead and renewed every 15 minutes through the normal extend path, with `openEnded: true` in `session.json`. The recovery agent and `backstop.sh` don't change: if the app dies, the deadline lapses and sleep comes back within an hour. `OpenEndedLease` holds the logic as a pure type. Details are in redesign-spec.md §1, "Sessions with no time limit".
 - **Network:** `NetworkFailover` gains the internet-check trigger and an unfiltered scan; `HotspotJoiner` joins a given `CWNetwork`.
-- **Removed:** `DurationInput`, `PillView`, `KeyCatcherPanel`, `HoldToEndButton`, `CountdownShape` and the pill motion.
+- **Removed:** `DurationInput`, `PillView`, `KeyCatcherPanel`, `HoldToEndButton` and `CountdownShape`.
+- **Files:** `Core/DurationText.swift` (countdown, labels, parser), `Core/OpenEndedLease.swift`, `Model/TemplateList.swift`, `System/InstalledApps.swift`, `System/HotspotMatcher.swift` (matcher, security names, internet-check counter), `System/HotspotJoiner.swift` (join and `WiFiScanner`), `UI/SessionMenu.swift`, `UI/CustomTimeField.swift`, `UI/SettingsChips.swift` (chips, flow layout, app picker), `UI/HotspotSetupSheet.swift`.
+- **Tests:** `RedesignLogicTests.swift` and `MenuBarFlowTests.swift`.
 
 ## Build, test and release
 

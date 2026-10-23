@@ -13,9 +13,9 @@ final class RecordingHotspotJoiner: HotspotJoining, @unchecked Sendable {
     var result = true
     var calls: [Call] { lock.withLock { _calls } }
 
-    func join(ssid: String, password: String, interfaceName: String) async throws -> Bool {
-        lock.withLock { _calls.append(Call(ssid: ssid, password: password, interfaceName: interfaceName)) }
-        return result
+    func join(saved: SavedHotspot, password: String, interfaceName: String) async throws -> HotspotJoinOutcome {
+        lock.withLock { _calls.append(Call(ssid: saved.ssid, password: password, interfaceName: interfaceName)) }
+        return result ? .joined(bssid: nil) : .notFound
     }
 }
 

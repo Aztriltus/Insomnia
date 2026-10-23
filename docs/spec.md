@@ -1,6 +1,6 @@
 # Insomnia spec
 
-What Insomnia does, feature by feature, as behaviour. This is the target: features marked **Planned** belong to the redesign and are not built yet; each says what the app does today in the meantime. How the build does it is in [engineering.md](engineering.md); why it is this way is in [decisions.md](decisions.md).
+What Insomnia does, feature by feature, as behaviour. Anything marked **Planned** is not built yet. How the build does it is in [engineering.md](engineering.md); why it is this way is in [decisions.md](decisions.md).
 
 ## Product
 
@@ -18,7 +18,7 @@ It is meant for a Mac on a stable, ventilated surface, never in a closed bag.
 
 ## 1. Sessions
 
-- A session is timed or has no time limit (**Planned**; today every session is timed).
+- A session is timed or has no time limit.
 - A timed session lasts at most 30 days, including time added; adding past that caps at 30 days.
 - A session with no time limit runs until you end it, quit, or a battery or heat rule ends it. If Insomnia crashes or is force-quit, the recovery agent still puts sleep back within an hour.
 - During a session, closing the lid doesn't sleep the Mac. Opening it doesn't end the session.
@@ -26,9 +26,7 @@ It is meant for a Mac on a stable, ventilated surface, never in a closed bag.
 - Starting takes a few seconds, because Insomnia sets up its crash-recovery job and turns off sleep with an admin command. A start can be refused; the reason is shown (section 2).
 - If something other than Insomnia has turned sleep off, Insomnia says so once per launch and leaves it alone.
 
-## 2. Menu bar  — **Planned**
-
-> Today: clicking the eye opens Days, Hours and Minutes fields in the menu bar; holding a ring ends the session; right-click opens status, Settings and Quit; the countdown shows seconds.
+## 2. Menu bar
 
 ### Icon and countdown
 
@@ -64,7 +62,7 @@ Left or right click opens the same menu.
 
 - "Keep awake for" followed by your templates (for example 30 minutes, 1 hour, 2 hours, 4 hours, 8 hours, 1 day), then **No time limit**. Choosing one starts a session.
 - A custom field that takes `45`, `45m`, `2h`, `1h30m`, `1:30`, `1.5h`, `3d` or `2d4h`. A bare number means minutes. Anything from 1 minute to 30 days.
-  - While it holds a valid time: "Start for 45 minutes" (Return) and "Save "45 minutes" as a template".
+  - While it holds a valid time, the line under it reads "Start for 45 minutes ↩" (Return does it), with a Save as template button.
   - While it holds text that can't be read: "Try 45m, 2h or 1d".
   - Esc clears it; a second Esc closes the menu.
 - Status and warning lines, if any.
@@ -80,7 +78,7 @@ Left or right click opens the same menu.
 **Session with no time limit:** "Awake with no time limit" heads the menu, then "Set a time limit" with the templates and the custom field ("End in 45 minutes"), which end the session that long from now. Then End session, the status lines, Settings… and Quit.
 - Status and warning lines, Settings…, Quit Insomnia.
 
-**Starting:** "Starting…" heads the menu and its items do nothing until the start finishes.
+**Starting:** the menu shows "Starting…" and the status lines, Settings and Quit, until the start finishes.
 
 **Start failed:** "Couldn't start: reason" heads the menu above the idle items. It and the badge clear on the next successful start, or once the menu has been opened and closed.
 
@@ -93,9 +91,7 @@ Left or right click opens the same menu.
 - A fresh install has 30 minutes, 1 hour, 2 hours, 4 hours, 8 hours and 1 day. People upgrading keep the presets they had (the 8 shortest, if they had more).
 - Up to 8, always sorted shortest first. No time limit is always offered and isn't a template. Saving a duplicate does nothing; saving into a full list says "Templates full. Remove one in Settings".
 
-## 3. Settings — **Planned**
-
-> Today: one long window with sections for Session, Lid-close actions, Agent apps, Battery and thermal, Network failover and App; app lists are edited by typing bundle identifiers.
+## 3. Settings
 
 One window. The top level holds:
 
@@ -159,9 +155,7 @@ During a session only. Without a session, the lid does nothing special.
 - When the Mac gets seriously hot, Low Power Mode turns on; at critical heat the session ends. On by default.
 - These rules only work while the app runs.
 
-## 6. Hotspot backup — **Planned**
-
-> Today: you type the hotspot's name and password in Settings, and failover starts only when the Wi-Fi connection drops.
+## 6. Hotspot backup
 
 **Setup never joins the network**, so Wi-Fi isn't interrupted.
 
@@ -172,7 +166,8 @@ During a session only. Without a session, the lid does nothing special.
    - Open network: Save.
    - Secured and saved on this Mac: Use saved password, which shows macOS's own administrator dialog, then copies the password; cancelling falls back to typing it.
    - Otherwise: type the password and Save. It must be 8 to 63 characters.
-5. The saved row shows "Not tried yet", "Worked on Oct 23", or "Password didn't work on Oct 23". **Try now** joins on purpose, after warning that Wi-Fi drops for a few seconds, then returns to the previous network.
+5. The saved row shows "Not tried yet", "Worked on Oct 23", or "Password didn't work on Oct 23", with Change… and Remove.
+6. **Planned:** a **Try now** button that joins on purpose, after warning that Wi-Fi drops for a few seconds, then returns to the previous network.
 
 **Failover**, during a session only, starts when Wi-Fi drops for 5 seconds, or stays connected with no internet for three checks 10 seconds apart. Insomnia joins the saved network, recognised by its hardware address first and its name second, retrying after 5, 10, 20 and 30 seconds, then every 30 seconds. A rejected password sends one notification ("The hotspot password didn't work. Update it in Settings.") and stops retries until the password changes.
 
@@ -187,11 +182,11 @@ After a set time offline (90 seconds by default), Insomnia can type `continue` i
 | Notification | When |
 | --- | --- |
 | Session ended (or Session restored, Sleep restored, Session not started) | A session ends, with the reason: time up, ended by you, quit, battery, heat, recovery, or a failed start. Adds a line when sound is still muted on a disconnected output |
-| 5 minutes left | Five minutes before the end of a timed session (never for one with no time limit). **Planned:** adds an **Add 1 hour** button; today the body says to extend from the menu bar |
+| 5 minutes left | Five minutes before the end of a timed session (never for one with no time limit), with an **Add 1 hour** button |
 | Low Power Mode on / off | A battery or heat rule turned it on, or the charger or battery level turned it off (lid-caused changes are silent) |
 | Network recovered | Wi-Fi came back after at least the nudge threshold, with how many tmux panes were nudged |
 | Hotspot not joined | Once per outage, when the hotspot can't be joined (for example, an unreadable password) |
-| The hotspot password didn't work (**Planned**) | A failover join was rejected |
+| The hotspot password didn't work | A failover join was rejected |
 | Restore incomplete, Session not ended, Recovery journal unreadable, Session file unreadable | Something a session changed couldn't be undone yet; the menu says what |
 | Power command still running | A sleep or Low Power Mode command didn't exit |
 | Sleep is disabled by something else | Once per launch |
@@ -223,12 +218,12 @@ After a set time offline (90 seconds by default), Insomnia can type `continue` i
 | --- | --- | --- |
 | Settings | `~/Library/Application Support/Insomnia/config.json`, owner-only | no |
 | Session state and recovery journal | same folder, owner-only | no |
-| Logs (may name Wi-Fi networks, hardware addresses (**Planned**), processes and tmux panes) | `~/Library/Logs/Insomnia/`, owner-only | no; check before sharing |
+| Logs (may name Wi-Fi networks, hardware addresses, processes and tmux panes) | `~/Library/Logs/Insomnia/`, owner-only | no; check before sharing |
 | Hotspot password | your login Keychain, readable without a prompt only by the build that saved it | no |
 | Location Services | used only to read Wi-Fi names and hardware addresses; your location is never requested | no |
-| Installed-app list (**Planned**) | read from app bundles on disk when Settings needs it | no |
+| Installed-app list | read from app bundles on disk when Settings needs it | no |
 | Update check | two requests to GitHub, only when you click | yes, carrying only the app version |
-| Internet check (**Planned**) | a plain request to Apple's captive-portal address during a session, only after a network change or a failed check | yes, carrying nothing about the Mac |
+| Internet check | an HTTPS request to Apple's captive-portal page during a session, only after a network change or a failed check | yes, carrying nothing about the Mac |
 
 ## Quality bar
 

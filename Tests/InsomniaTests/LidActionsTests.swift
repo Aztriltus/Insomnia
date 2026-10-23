@@ -1996,12 +1996,14 @@ final class LidActionsTests: XCTestCase {
         XCTAssertFalse(m.isActive)
 
         XCTAssertEqual(h.clamshell.closed, false, "the lid is open for the new session")
-        await m.start(duration: 3600)
+        // Half a second over the hour, so the minute text next changes half
+        // a second in ("1h 1m" to "1h") and the real timer fires quickly.
+        await m.start(duration: 3600.5)
 
         XCTAssertTrue(m.isActive)
         XCTAssertTrue(m.countdownTimerArmed, "a session started with the lid open has no countdown timer")
         let before = m.countdownText
-        h.clock.advance(7)
+        h.clock.advance(1)
         let deadline = Date().addingTimeInterval(5)
         while m.countdownText == before, Date() < deadline {
             try await Task.sleep(for: .milliseconds(50))

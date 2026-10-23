@@ -55,7 +55,7 @@ on each day it has new commits. They have the newest code and may be broken.
 
 To install a release yourself, follow [docs/install.md](docs/install.md). It
 covers both channels, how to check the download, and `v0.1.0`, which installs
-differently. Settings > App shows the installed version, and "Check for
+differently. Settings > Advanced > About shows the installed version, and "Check for
 updates" there tells you whether a newer release exists without installing
 anything.
 
@@ -100,15 +100,22 @@ file and explains how upgrades replace them.
 
 ## Using it
 
-1. **Start.** Click the eye in the menu bar, enter days, hours and minutes,
-   and press Enter.
-2. **Add time.** Click the eye or the countdown during a session.
-3. **End early.** Press and hold the end control next to the countdown.
-4. **Settings and status.** Right-click the eye. Quit asks Insomnia to undo
+1. **Start.** Click the eye in the menu bar and choose a duration or No time
+   limit. To use a time that isn't listed, type it (45m, 2h, 1d) and press
+   Return. Save as template adds it to the menu.
+2. **Add time or end.** Click the eye or the countdown during a session to
+   add time, remove or set a time limit, or end the session.
+3. **Settings and status.** The same menu shows status lines, Settings and
+   Quit. Quit asks Insomnia to undo
    the session first, and it refuses while a change is still waiting to be
    undone. Saved audio for an output that isn't connected doesn't hold it up.
    Insomnia restores that output if it reconnects while the app runs, or at
    the next launch.
+
+The menu bar shows the time left as `2d 5h`, `5h 12m` or `42m`, or `∞` for a
+session with no time limit. A session with no time limit keeps a rolling
+deadline an hour ahead, so if Insomnia crashes, the recovery agent still puts
+sleep back within an hour.
 
 You don't have to close the lid, and opening it doesn't end the session.
 
@@ -179,12 +186,20 @@ alone. [docs/recovery.md](docs/recovery.md) explains each case.
 <details>
 <summary><strong>iPhone hotspot handoff and tmux</strong></summary>
 
-If the Wi-Fi drops during a session, Insomnia can join your iPhone's hotspot.
-Set System Settings > Wi-Fi > Ask to join hotspots to Automatically, then enter
-the hotspot's name and password in Insomnia's Settings. The password stays in
-your login Keychain. Insomnia asks for Location Services access, because
-macOS requires it to read Wi-Fi network names. It never reads your location.
-After you reinstall Insomnia, enter the password again.
+If the Wi-Fi drops, or stays connected with no internet, during a session,
+Insomnia can join your iPhone's hotspot. In Settings > Hotspot backup, choose
+Set up and pick the hotspot from the list of nearby networks. Insomnia
+remembers its name and hardware address. Choosing a network doesn't join it,
+so your Wi-Fi isn't interrupted. If your Mac already knows the network, Use
+saved password copies the password macOS saved (macOS asks for an
+administrator password in its own window); otherwise type it. The password
+stays in your login Keychain. Insomnia asks for Location Services access,
+because macOS requires it to read Wi-Fi network names. It never reads your
+location. After you reinstall Insomnia, choose the hotspot again.
+
+To tell whether Wi-Fi has internet, Insomnia loads Apple's captive-portal page
+(`https://captive.apple.com/hotspot-detect.html`) during a session, after a
+network change or a failed check. Nothing about your Mac is sent.
 
 After 90 seconds without a network, Insomnia can also type `continue` into a
 tmux pane running a coding agent. It only types into panes you list in
@@ -205,7 +220,7 @@ It doesn't press Enter unless you turn that on. Mark a pane you don't type in.
 These browsers slow down windows that macOS reports as hidden, which includes
 every window while the lid is closed. If a running browser lacks
 `--disable-backgrounding-occluded-windows` or
-`--disable-renderer-backgrounding`, the right-click menu offers "Relaunch
+`--disable-renderer-backgrounding`, the menu offers "Relaunch
 [browser] unthrottled". It asks first, because relaunching quits the browser,
 and tabs come back only if the browser reopens them on startup. Some web apps
 may still stop with the lid closed.

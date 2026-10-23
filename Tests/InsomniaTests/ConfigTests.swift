@@ -14,7 +14,7 @@ final class ConfigTests: XCTestCase {
 
     func testDefaults() {
         let c = Config()
-        XCTAssertEqual(c.presets, [1800, 3600, 7200, 14400, 28800, 43200, 86400, 259200])
+        XCTAssertEqual(c.templates, [1800, 3600, 7200, 14400, 28800, 86400])
         XCTAssertEqual(c.lowPowerFloor, 40)
         XCTAssertEqual(c.endFloor, 10)
         XCTAssertEqual(c.nudgeThreshold, 90)
@@ -251,13 +251,13 @@ final class ConfigTests: XCTestCase {
     func testLidCloseNoticeNamesTheChangesAndWhereToChangeThemBack() {
         let both = LidCloseDefaultsChange(turnedOffFreezeAll: true, turnedOnMute: true)
         XCTAssertEqual(LidCloseDefaultsChange.title, "Lid-close settings changed")
-        XCTAssertEqual(both.notificationBody, "This update changed two lid-close settings: \"Freeze every other app while the lid is closed\" is now off and \"Mute audio on lid close\" is now on. To change them back, choose Settings\u{2026} from the Insomnia menu bar icon and look under Lid-close actions.")
-        XCTAssertEqual(both.settingsLine, "This update changed two lid-close settings: \"Freeze every other app while the lid is closed\" is now off and \"Mute audio on lid close\" is now on. Both toggles are below.")
+        XCTAssertEqual(both.notificationBody, "This update changed two lid-close settings: \"Pause every other app\" is now off and \"Mute sound\" is now on. To change them back, choose Settings\u{2026} from the Insomnia menu bar icon and look under Advanced, When the lid closes.")
+        XCTAssertEqual(both.settingsLine, "This update changed two lid-close settings: \"Pause every other app\" is now off and \"Mute sound\" is now on. Both toggles are below.")
         let mute = LidCloseDefaultsChange(turnedOffFreezeAll: false, turnedOnMute: true)
-        XCTAssertEqual(mute.notificationBody, "This update changed a lid-close setting: \"Mute audio on lid close\" is now on. To change it back, choose Settings\u{2026} from the Insomnia menu bar icon and look under Lid-close actions.")
-        XCTAssertEqual(mute.settingsLine, "This update changed a lid-close setting: \"Mute audio on lid close\" is now on. The toggle is below.")
+        XCTAssertEqual(mute.notificationBody, "This update changed a lid-close setting: \"Mute sound\" is now on. To change it back, choose Settings\u{2026} from the Insomnia menu bar icon and look under Advanced, When the lid closes.")
+        XCTAssertEqual(mute.settingsLine, "This update changed a lid-close setting: \"Mute sound\" is now on. The toggle is below.")
         let freeze = LidCloseDefaultsChange(turnedOffFreezeAll: true, turnedOnMute: false)
-        XCTAssertEqual(freeze.changes, "\"Freeze every other app while the lid is closed\" is now off")
+        XCTAssertEqual(freeze.changes, "\"Pause every other app\" is now off")
     }
 
     /// A config.json written before the display toggle existed keeps the
@@ -331,7 +331,7 @@ final class ConfigTests: XCTestCase {
         var c = Config()
         c.hotspotSSID = "iPhone"
         c.tmuxTargets = ["main:0.1"]
-        c.presets = [60]
+        c.templates = [60]
         let data = try Store.makeEncoder().encode(c)
         XCTAssertEqual(try Store.makeDecoder().decode(Config.self, from: data), c)
     }
@@ -445,7 +445,7 @@ final class ConfigLoadTests: XCTestCase {
         XCTAssertEqual(try h.store.loadConfig(), m.config, "the update and its mark were not written back")
         XCTAssertEqual(h.notifier.posts.map(\.title), [LidCloseDefaultsChange.title])
         XCTAssertEqual(h.notifier.posts.first?.body, change.notificationBody)
-        XCTAssertTrue(log().contains(#"[info] insomnia: config.json: lid-close update: "Freeze every other app while the lid is closed" is now off and "Mute audio on lid close" is now on; saved"#), log())
+        XCTAssertTrue(log().contains(#"[info] insomnia: config.json: lid-close update: "Pause every other app" is now off and "Mute sound" is now on; saved"#), log())
 
         await m.reconcile()
         let again = h.makeManager()
@@ -539,34 +539,16 @@ final class ConfigLoadTests: XCTestCase {
         XCTAssertTrue(log().contains("config.json: lid-close update: nothing to change; saved"), log())
     }
 
-    // MARK: Default focused field
+    // MARK: Removed settings
 
     private func decode(_ json: String) throws -> Config {
         try JSONDecoder().decode(Config.self, from: Data(json.utf8))
     }
 
-    func testTheDefaultFocusedFieldIsHours() {
-        XCTAssertEqual(Config().defaultFocusField, .hours)
-    }
-
-    func testAConfigFromAnEarlierBuildKeepsHoursFocused() throws {
-        XCTAssertEqual(try decode("{}").defaultFocusField, .hours)
-    }
-
-    func testTheDefaultFocusedFieldIsSavedByName() throws {
-        for field in DurationInput.Field.allCases {
-            var c = Config()
-            c.defaultFocusField = field
-            let data = try JSONEncoder().encode(c)
-            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-            XCTAssertEqual(json["defaultFocusField"] as? String, "\(field)")
-            XCTAssertEqual(try JSONDecoder().decode(Config.self, from: data).defaultFocusField, field)
-        }
-    }
-
-    func testAnUnknownFocusedFieldFallsBackToHoursAndKeepsTheRestOfTheConfig() throws {
+    /// The pills' "default field" setting is gone; a config.json that has it
+    /// still loads, and the rest of it is kept.
+    func testARemovedFocusedFieldKeyIsIgnoredAndKeepsTheRestOfTheConfig() throws {
         let c = try decode(#"{"defaultFocusField": "seconds", "endFloor": 15}"#)
-        XCTAssertEqual(c.defaultFocusField, .hours)
-        XCTAssertEqual(c.endFloor, 15, "one bad value must not throw the whole config away")
+        XCTAssertEqual(c.endFloor, 15, "one stale key must not throw the whole config away")
     }
 }

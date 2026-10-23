@@ -72,10 +72,10 @@ private final class GatedJoiner: HotspotJoining, @unchecked Sendable {
     private let lock = NSLock()
     private var _calls = 0
     var calls: Int { lock.withLock { _calls } }
-    func join(ssid: String, password: String, interfaceName: String) async throws -> Bool {
+    func join(saved: SavedHotspot, password: String, interfaceName: String) async throws -> HotspotJoinOutcome {
         lock.withLock { _calls += 1 }
         await gate.wait()
-        return true
+        return .joined(bssid: nil)
     }
 }
 

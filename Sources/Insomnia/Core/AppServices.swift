@@ -179,6 +179,12 @@ final class AppServices {
         }
         net.onRecovered = { [weak self] gap in self?.status.lastGap = gap }
         net.onPasswordReport = { [weak self] report in self?.status.hotspotPasswordReport = report }
+        net.onJoinResult = { [weak manager] result, bssid in
+            manager?.updateConfig { c in
+                c.hotspotLastJoin = HotspotJoinRecord(result: result, at: Date())
+                c.hotspotBSSIDs = HotspotMatcher.recording(bssid, into: c.hotspotBSSIDs)
+            }
+        }
         network = net
         networkTask = Task { [weak self, weak net] in
             guard let self, let net else { return }
