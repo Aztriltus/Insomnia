@@ -12,82 +12,73 @@ final class SessionMenuTests: XCTestCase {
         return c
     }
     let locale = Locale(identifier: "en_US")
-    let templates: [TimeInterval] = [1800, 3600, 86400]
+    let durations = TemplateList.freshDefaults
+    var cells: [SessionMenu.Cell] { SessionMenu.cells(durations) }
 
     func items(_ state: SessionMenu.State) -> [SessionMenu.Item] {
-        SessionMenu.items(state: state, templates: templates, now: now, maxDuration: 30 * 86400, calendar: calendar, locale: locale)
+        SessionMenu.items(state: state, durations: durations, now: now, calendar: calendar, locale: locale)
     }
 
-    func testIdleOffersTemplatesThenNoTimeLimitThenTheCustomField() {
-        XCTAssertEqual(items(.idle), [
-            .label("Keep awake for"),
-            .template(1800, title: "30 minutes", mode: .start),
-            .template(3600, title: "1 hour", mode: .start),
-            .template(86400, title: "1 day", mode: .start),
-            .noTimeLimit,
-            .customField(.start),
+    func testTheGridIsInfinityThenTheSevenDurations() {
+        XCTAssertEqual(cells.map(\.title), ["\u{221E}", "10m", "30m", "1h", "2h", "4h", "8h", "12h"])
+    }
+
+    func testIdleIsAnInactiveLineAndTheGridWithNothingHighlighted() {
+        XCTAssertEqual(items(.idle), [.status("Inactive", active: false), .grid(cells: cells, selected: nil, enabled: true)])
+    }
+
+    func testStartingDisablesTheGrid() {
+        XCTAssertEqual(items(.starting), [.status("Starting\u{2026}", active: true), .grid(cells: cells, selected: nil, enabled: false)])
+    }
+
+    func testAFailedStartSaysWhyUnderTheInactiveLine() {
+        XCTAssertEqual(items(.failed(reason: "could not arm backstop: no")), [
+            .status("Inactive", active: false),
+            .failure("Couldn\u{2019}t start: could not arm backstop: no"),
+            .grid(cells: cells, selected: nil, enabled: true),
         ])
     }
 
-    func testStartingShowsOnlyTheHeader() {
-        XCTAssertEqual(items(.starting), [.header("Starting\u{2026}")])
+    func testRunningHighlightsTheChosenCell() {
+        let out = items(.running(endsAt: now.addingTimeInterval(3600), choice: 3600))
+        XCTAssertEqual(out.count, 2)
+        XCTAssertEqual(out[1], .grid(cells: cells, selected: .duration(3600), enabled: true))
+        guard case let .status(text, active) = out[0] else { return XCTFail("\(out)") }
+        XCTAssertTrue(active)
+        XCTAssertTrue(text.hasPrefix("Active until "), text)
     }
 
-    func testAFailedStartLeadsWithTheReasonAboveTheIdleItems() {
-        let out = items(.failed(reason: "could not arm backstop: no"))
-        XCTAssertEqual(out.first, .failure("Couldn\u{2019}t start: could not arm backstop: no"))
-        XCTAssertEqual(Array(out.dropFirst(2)), items(.idle))
+    func testANoTimeLimitSessionHighlightsInfinity() {
+        XCTAssertEqual(items(.openEnded), [.status("Active, no time limit", active: true), .grid(cells: cells, selected: .openEnded, enabled: true)])
     }
 
-    func testRunningOffersAddTimeRemoveLimitAndEnd() {
-        let out = items(.running(endsAt: now.addingTimeInterval(3600)))
-        XCTAssertEqual(out.last, .endSession)
-        XCTAssertTrue(out.contains(.removeTimeLimit))
-        XCTAssertTrue(out.contains(.customField(.add)))
-        XCTAssertTrue(out.contains(.template(3600, title: "1 hour", mode: .add)))
-        XCTAssertFalse(out.contains(.noTimeLimit))
+    /// With nothing highlighted, clicking can't end it, so End session shows.
+    func testARunningSessionWithNoKnownCellOffersEndSession() {
+        XCTAssertEqual(items(.running(endsAt: now.addingTimeInterval(3600), choice: nil)).last, .endSession)
+        XCTAssertEqual(items(.running(endsAt: now.addingTimeInterval(3600), choice: 999)).last, .endSession)
     }
 
-    func testAddingPastTheCeilingSaysItIsCapped() {
-        let out = items(.running(endsAt: now.addingTimeInterval(29.5 * 86400)))
-        XCTAssertTrue(out.contains(.template(86400, title: "1 day (capped at 30 days)", mode: .add)))
-        XCTAssertTrue(out.contains(.template(1800, title: "30 minutes", mode: .add)))
+    func testClicking() {
+        XCTAssertEqual(SessionMenu.action(for: .duration(600), in: .idle), .start(.duration(600)))
+        XCTAssertEqual(SessionMenu.action(for: .openEnded, in: .failed(reason: "x")), .start(.openEnded))
+        XCTAssertEqual(SessionMenu.action(for: .duration(600), in: .starting), .none)
+        let running = SessionMenu.State.running(endsAt: now, choice: 3600)
+        XCTAssertEqual(SessionMenu.action(for: .duration(3600), in: running), .end, "the highlighted cell ends it")
+        XCTAssertEqual(SessionMenu.action(for: .duration(7200), in: running), .switchTo(.duration(7200)))
+        XCTAssertEqual(SessionMenu.action(for: .openEnded, in: running), .switchTo(.openEnded))
+        XCTAssertEqual(SessionMenu.action(for: .openEnded, in: .openEnded), .end)
+        XCTAssertEqual(SessionMenu.action(for: .duration(600), in: .openEnded), .switchTo(.duration(600)))
     }
 
-    func testOpenEndedOffersSetALimitAndEnd() {
-        let out = items(.openEnded)
-        XCTAssertEqual(out.first, .header("Awake with no time limit"))
-        XCTAssertTrue(out.contains(.label("Set a time limit")))
-        XCTAssertTrue(out.contains(.template(1800, title: "30 minutes", mode: .setLimit)))
-        XCTAssertTrue(out.contains(.customField(.setLimit)))
-        XCTAssertFalse(out.contains(.removeTimeLimit))
-        XCTAssertEqual(out.last, .endSession)
-    }
-
-    func testHeaderNamesTodayTheWeekdayOrTheDate() {
+    func testUntilNamesTodayTheWeekdayOrTheDate() {
         // 800_000_000 is a Friday evening in Los Angeles.
-        let today = SessionMenu.header(endsAt: now.addingTimeInterval(3600), now: now, calendar: calendar, locale: locale)
-        XCTAssertTrue(today.hasPrefix("Awake until "), today)
+        let today = SessionMenu.untilPhrase(endsAt: now.addingTimeInterval(3600), now: now, calendar: calendar, locale: locale)
+        XCTAssertTrue(today.hasPrefix("until "), today)
         XCTAssertFalse(today.contains(","), today)
-        let week = SessionMenu.header(endsAt: now.addingTimeInterval(2 * 86400), now: now, calendar: calendar, locale: locale)
-        XCTAssertTrue(week.hasPrefix("Awake until Sun "), week)
-        let later = SessionMenu.header(endsAt: now.addingTimeInterval(20 * 86400), now: now, calendar: calendar, locale: locale)
-        XCTAssertTrue(later.hasPrefix("Awake until May 28, "), later)
-    }
-
-    func testCustomFieldStatus() {
-        XCTAssertEqual(SessionMenu.fieldStatus("", mode: .start), .empty)
-        XCTAssertEqual(SessionMenu.fieldStatus("soon", mode: .start), .invalid)
-        XCTAssertEqual(SessionMenu.fieldStatus("45", mode: .start), .valid(2700, action: "Start for 45 minutes"))
-        XCTAssertEqual(SessionMenu.fieldStatus("2h", mode: .add), .valid(7200, action: "Add 2 hours"))
-        XCTAssertEqual(SessionMenu.fieldStatus("1h30m", mode: .setLimit), .valid(5400, action: "End in 1 hour 30 minutes"))
-    }
-
-    func testSaveTitle() {
-        XCTAssertEqual(SessionMenu.saveTitle(2700, templates: templates), "Save \u{201C}45 minutes\u{201D} as a template")
-        XCTAssertNil(SessionMenu.saveTitle(3600, templates: templates))
-        let full = (1...8).map { TimeInterval($0) * 3600 }
-        XCTAssertEqual(SessionMenu.saveTitle(2700, templates: full), "Templates full. Remove one in Settings")
+        let week = SessionMenu.untilPhrase(endsAt: now.addingTimeInterval(2 * 86400), now: now, calendar: calendar, locale: locale)
+        XCTAssertTrue(week.hasPrefix("until Sun "), week)
+        let later = SessionMenu.untilPhrase(endsAt: now.addingTimeInterval(20 * 86400), now: now, calendar: calendar, locale: locale)
+        XCTAssertTrue(later.hasPrefix("until May 28, "), later)
     }
 
     @MainActor
@@ -150,7 +141,7 @@ final class MenuBarFlowTests: XCTestCase {
         XCTAssertTrue(ok)
         XCTAssertNil(rig.model.pendingCountdown)
         XCTAssertEqual(rig.manager.countdownText, "4h")
-        XCTAssertEqual(rig.controller.menuState, .running(endsAt: rig.manager.session!.endsAt))
+        XCTAssertEqual(rig.controller.menuState, .running(endsAt: rig.manager.session!.endsAt, choice: 4 * 3600))
     }
 
     @MainActor

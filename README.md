@@ -100,13 +100,13 @@ file and explains how upgrades replace them.
 
 ## Using it
 
-1. **Start.** Click the eye in the menu bar and choose a duration or No time
-   limit. To use a time that isn't listed, type it (45m, 2h, 1d) and press
-   Return. Save as template adds it to the menu.
-2. **Add time or end.** Click the eye or the countdown during a session to
-   add time, remove or set a time limit, or end the session.
-3. **Settings and status.** The same menu shows status lines, Settings and
-   Quit. Quit asks Insomnia to undo
+1. **Start.** Click the eye in the menu bar and pick a cell in the grid: ∞
+   (no time limit), 10m, 30m, 1h, 2h, 4h, 8h or 12h. Settings > Durations
+   changes the seven times.
+2. **Switch or end.** During a session its cell is highlighted. Click another
+   cell to switch to it, or the highlighted one to end the session.
+3. **Settings and status.** The same menu has Settings and Quit, and lines
+   for anything that needs attention. Quit asks Insomnia to undo
    the session first, and it refuses while a change is still waiting to be
    undone. Saved audio for an output that isn't connected doesn't hold it up.
    Insomnia restores that output if it reconnects while the app runs, or at

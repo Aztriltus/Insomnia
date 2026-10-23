@@ -186,8 +186,7 @@ final class UIStatusTests: XCTestCase {
             StatusMenu.Item(title: "Sleep held per journal \u{2014} not verified live", kind: .info),
             StatusMenu.Item(title: "Lid: closed \u{00B7} 82%", kind: .info),
             StatusMenu.Item(title: "3 apps frozen", kind: .info),
-            StatusMenu.Item(title: "\u{26A0} Chrome is throttled", kind: .warning),
-            StatusMenu.Item(title: "Relaunch Chrome unthrottled", kind: .relaunchBrowser(Self.chrome)),
+            StatusMenu.Item(title: "Throttled", kind: .throttled([Self.chrome])),
             StatusMenu.Item(title: "", kind: .separator),
             StatusMenu.Item(title: StatusMenu.settingsTitle, kind: .settings),
             StatusMenu.Item(title: StatusMenu.quitTitle, kind: .quit),
@@ -238,9 +237,9 @@ final class UIStatusTests: XCTestCase {
         )
         XCTAssertEqual(
             items.map(\.kind),
-            [.info, .warning, .relaunchBrowser(Self.chrome), .warning, .warning, .separator, .settings, .quit]
+            [.info, .throttled([Self.chrome]), .warning, .warning, .separator, .settings, .quit]
         )
-        XCTAssertEqual(items[3], StatusMenu.Item(
+        XCTAssertEqual(items[2], StatusMenu.Item(
             title: "\u{26A0} Hotspot password unreadable by this build: enter it again in Settings",
             kind: .warning
         ))
@@ -317,8 +316,9 @@ final class UIStatusTests: XCTestCase {
     }
 
     /// Greptile caught this as a regression: replacing the popover with a
-    /// menu left the throttle warning with no way to act on it.
-    func testEveryThrottledBrowserGetsItsOwnRelaunchItem() {
+    /// menu left the throttle warning with no way to act on it. Every
+    /// throttled browser is in the group, and its icon offers the relaunch.
+    func testEveryThrottledBrowserIsInTheThrottledGroup() {
         let items = StatusMenu.items(
             sessionActive: true,
             sleepHeld: true,
@@ -327,11 +327,9 @@ final class UIStatusTests: XCTestCase {
             throttledBrowsers: [Self.chrome, Self.arc],
             error: nil
         )
-        XCTAssertEqual(items.filter { $0.kind == .relaunchBrowser(Self.chrome) }.count, 1)
-        XCTAssertEqual(items.filter { $0.kind == .relaunchBrowser(Self.arc) }.count, 1)
         XCTAssertEqual(
             items.map(\.kind),
-            [.info, .warning, .relaunchBrowser(Self.chrome), .relaunchBrowser(Self.arc), .separator, .settings, .quit]
+            [.info, .throttled([Self.chrome, Self.arc]), .separator, .settings, .quit]
         )
     }
 }

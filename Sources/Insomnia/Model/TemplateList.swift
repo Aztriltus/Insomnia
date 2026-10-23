@@ -1,18 +1,20 @@
 import Foundation
 
-/// The saved durations shown in the menu ("templates"). Pure list rules:
-/// at most `capacity`, shortest first, no duplicates.
+/// The durations in the menu's grid, after "No time limit". Pure list
+/// rules: at most `capacity` (the grid is 4 by 2, and ∞ takes a cell),
+/// shortest first, no duplicates.
 enum TemplateList {
-    static let capacity = 8
+    static let capacity = 7
 
     /// What a fresh install offers.
     static let freshDefaults: [TimeInterval] = [
+        10 * 60,
         30 * 60,
         1 * 3600,
         2 * 3600,
         4 * 3600,
         8 * 3600,
-        24 * 3600,
+        12 * 3600,
     ]
 
     enum AddResult: Equatable {

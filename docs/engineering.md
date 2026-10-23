@@ -100,7 +100,7 @@ Built on 2026-10-24 (branch `feat/redesign`). [redesign-spec.md](redesign-spec.m
 - **No time limit:** a rolling deadline. The session's end time is kept 60 minutes ahead and renewed every 15 minutes through the normal extend path, with `openEnded: true` in `session.json`. The recovery agent and `backstop.sh` don't change: if the app dies, the deadline lapses and sleep comes back within an hour. `OpenEndedLease` holds the logic as a pure type. Details are in redesign-spec.md §1, "Sessions with no time limit".
 - **Network:** `NetworkFailover` gains the internet-check trigger and an unfiltered scan; `HotspotJoiner` joins a given `CWNetwork`.
 - **Removed:** `DurationInput`, `PillView`, `KeyCatcherPanel`, `HoldToEndButton` and `CountdownShape`.
-- **Files:** `Core/DurationText.swift` (countdown, labels, parser), `Core/OpenEndedLease.swift`, `Model/TemplateList.swift`, `System/InstalledApps.swift`, `System/HotspotMatcher.swift` (matcher, security names, internet-check counter), `System/HotspotJoiner.swift` (join and `WiFiScanner`), `UI/SessionMenu.swift`, `UI/CustomTimeField.swift`, `UI/SettingsChips.swift` (chips, flow layout, app picker), `UI/HotspotSetupSheet.swift`.
+- **Files:** `Core/DurationText.swift` (countdown, labels, parser), `Core/OpenEndedLease.swift`, `Model/TemplateList.swift`, `System/InstalledApps.swift`, `System/HotspotMatcher.swift` (matcher, security names, internet-check counter), `System/HotspotJoiner.swift` (join and `WiFiScanner`), `UI/SessionMenu.swift`, `UI/DurationGridView.swift` (the grid and the throttled icons), `UI/SettingsChips.swift` (chips, flow layout, app picker), `UI/HotspotSetupSheet.swift`.
 - **Tests:** `RedesignLogicTests.swift` and `MenuBarFlowTests.swift`.
 
 ## Build, test and release

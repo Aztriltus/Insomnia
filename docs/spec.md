@@ -58,38 +58,35 @@ The time left shows one or two units and never seconds:
 
 Left or right click opens the same menu.
 
-**No session:**
+```
+Active until 6:40 PM            ← not clickable: Inactive, Active until …, Active, no time limit
+┌────┬────┬────┬────┐
+│ ∞  │10m │30m │[1h]│           ← the running session's cell is highlighted
+├────┼────┼────┼────┤
+│ 2h │ 4h │ 8h │12h │
+└────┴────┴────┴────┘
+Throttled                       ← only when a browser is throttled
+[Chrome icon]
+─────────────
+Settings…                ⌘,
+Quit Insomnia            ⌘Q
+```
 
-- "Keep awake for" followed by your templates (for example 30 minutes, 1 hour, 2 hours, 4 hours, 8 hours, 1 day), then **No time limit**. Choosing one starts a session.
-- A custom field that takes `45`, `45m`, `2h`, `1h30m`, `1:30`, `1.5h`, `3d` or `2d4h`. A bare number means minutes. Anything from 1 minute to 30 days.
-  - While it holds a valid time, the line under it reads "Start for 45 minutes ↩" (Return does it), with a Save as template button.
-  - While it holds text that can't be read: "Try 45m, 2h or 1d".
-  - Esc clears it; a second Esc closes the menu.
-- Status and warning lines, if any.
-- Settings… (⌘,) and Quit Insomnia (⌘Q).
+- **The first line** says whether Insomnia is keeping the Mac awake: "Inactive", "Starting…", "Active until 6:40 PM" (or "Sat 6:40 PM", or "Oct 30, 6:40 PM" when further out), or "Active, no time limit". It isn't clickable.
+- **The grid** is ∞ (no time limit) and the durations from Settings, 10m, 30m, 1h, 2h, 4h, 8h and 12h by default, four to a row.
+  - With nothing running, clicking a cell starts that session.
+  - While a session runs, its cell is highlighted. Clicking another cell switches to it: the session then ends that long from now, or has no time limit for ∞. Clicking the highlighted cell ends the session.
+  - While starting, the grid is greyed out.
+  - A running session with no matching cell (one a durations change has removed, say) gets an End session item under the grid.
+- **Start failed:** "Couldn't start: reason" shows under the first line until the next successful start, or until the menu has been opened and closed once.
+- **Throttled:** a throttled browser shows as its icon, with no label, under a "Throttled" heading. Clicking the icon offers "Relaunch unthrottled" and "Advanced settings…".
+- **Other lines** show only when something needs attention: sleep held with no session, paused apps, Docker, a hotspot password problem, a recovery problem, a command still running, and sound still muted on a disconnected output (with "Stop waiting for …").
+- **Quit** undoes the session first, and refuses while a change is still waiting to be undone.
 
-**Session running:**
+### Durations
 
-- "Awake until 6:40 PM" (or "Sat 6:40 PM", or "Oct 30, 6:40 PM" when further out). The time left isn't repeated.
-- "Add time" followed by the templates, then the custom field with "Add 45 minutes".
-- Remove time limit.
-- End session. It ends at once, with no hold or confirmation.
-
-**Session with no time limit:** "Awake with no time limit" heads the menu, then "Set a time limit" with the templates and the custom field ("End in 45 minutes"), which end the session that long from now. Then End session, the status lines, Settings… and Quit.
-- Status and warning lines, Settings…, Quit Insomnia.
-
-**Starting:** the menu shows "Starting…" and the status lines, Settings and Quit, until the start finishes.
-
-**Start failed:** "Couldn't start: reason" heads the menu above the idle items. It and the badge clear on the next successful start, or once the menu has been opened and closed.
-
-**Status and warning lines** include: sleep being held, lid state, paused apps, Docker, a throttled browser with a "Relaunch … unthrottled" item, a hotspot password problem, a recovery problem, a command still running, and sound still muted on a disconnected output with a "Stop waiting for …" item.
-
-**Quit** undoes the session first, and refuses while a change is still waiting to be undone.
-
-### Templates
-
-- A fresh install has 30 minutes, 1 hour, 2 hours, 4 hours, 8 hours and 1 day. People upgrading keep the presets they had (the 8 shortest, if they had more).
-- Up to 8, always sorted shortest first. No time limit is always offered and isn't a template. Saving a duplicate does nothing; saving into a full list says "Templates full. Remove one in Settings".
+- Up to 7, always shortest first, edited in Settings. ∞ is always in the grid and isn't one of them.
+- A fresh install, and anyone upgrading from an earlier build, starts with 10m, 30m, 1h, 2h, 4h, 8h and 12h.
 
 ## 3. Settings
 
@@ -99,7 +96,7 @@ One window. The top level holds:
 | --- | --- | --- |
 | Pause when the lid closes | Apps shown as small icon and name chips; paused while the lid is closed, resumed when it opens | Slack, WhatsApp, Discord (when installed) |
 | Keep at full speed | Apps never paused or slowed down during a session | Common terminals, editors, AI apps, agent browsers, Docker, Tailscale, LM Studio, Ollama (when installed) |
-| Durations | The templates, as chips with add and remove | as in section 2 |
+| Durations | The grid's durations, as chips with add and remove (up to 7) | 10m, 30m, 1h, 2h, 4h, 8h, 12h |
 | Hotspot backup | The saved hotspot, with Change… and Remove (section 6) | not set |
 | Open at login | Shows what macOS has on file; a pending approval shows "Waiting for approval in System Settings" with Open Login Items; an error shows under it | off |
 | Advanced | Collapsed group; remembers whether it was open | collapsed |

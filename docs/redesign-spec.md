@@ -26,11 +26,10 @@ change:
 
 Where the build differs from the sections below:
 
+- **The menu (section 1, "The menu", "Custom time field", "Duration parser" and "Templates") was replaced on 2026-10-24** by a first line that says Active or Inactive and a 4×2 grid of ∞, 10m, 30m, 1h, 2h, 4h, 8h and 12h, with no custom field. [spec.md](spec.md) §2 describes it. `DurationParser` remains, for adding durations in Settings.
 - **Try now** (section 3, step 8) is not built yet. Setup never joins.
-- **The custom field** shows its action ("Start for 45 minutes ↩") and the Save as template button inside its own row, at a fixed height, rather than as separate menu rows. An open menu can't safely grow while you type.
-- **While starting**, the menu shows "Starting…" with the status lines, Settings and Quit, rather than disabled template items.
 - **The internet check** uses HTTPS (`https://captive.apple.com/hotspot-detect.html`), so no App Transport Security exception is needed. A captive portal fails it, as intended.
-- **Config keys** stay flat for compatibility with older builds: `templates`, `hotspotSSID`, `hotspotBSSIDs`, `hotspotSecurity`, `hotspotLastJoin` and `advancedExpanded`. There's no `version` field, and migration is by key.
+- **Config keys** stay flat for compatibility with older builds: `durations`, `hotspotSSID`, `hotspotBSSIDs`, `hotspotSecurity`, `hotspotLastJoin` and `advancedExpanded`. There's no `version` field, and migration is by key.
 - **A rejected password** means CoreWLAN error -3912, -3924 or -3925. A plain timeout (-3905) is treated as "not found", not "rejected".
 - **The warning badge** is a small orange dot on the eye.
 

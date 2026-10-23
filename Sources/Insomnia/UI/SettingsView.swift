@@ -140,24 +140,24 @@ struct SettingsView: View {
     private var durationsSection: some View {
         Section {
             FlowLayout(spacing: 6) {
-                ForEach(manager.config.templates, id: \.self) { t in
+                ForEach(manager.config.durations, id: \.self) { t in
                     TextChip(text: DurationLabel.short(t), removeLabel: "Remove \(DurationLabel.long(t))") {
-                        update { $0.templates = TemplateList.removing(t, from: $0.templates) }
+                        update { $0.durations = TemplateList.removing(t, from: $0.durations) }
                     }
                 }
-                if manager.config.templates.count < TemplateList.capacity {
+                if manager.config.durations.count < TemplateList.capacity {
                     AddChipButton(label: "Add a duration") { showingAddDuration = true }
                         .popover(isPresented: $showingAddDuration, arrowEdge: .bottom) {
-                            AddDurationPopover(templates: manager.config.templates) { d in
-                                if case let .added(list) = TemplateList.adding(d, to: manager.config.templates) {
-                                    update { $0.templates = list }
+                            AddDurationPopover(templates: manager.config.durations) { d in
+                                if case let .added(list) = TemplateList.adding(d, to: manager.config.durations) {
+                                    update { $0.durations = list }
                                 }
                                 showingAddDuration = false
                             }
                         }
                 }
             }
-            Text("These show in the menu. \"No time limit\" is always there too.")
+            Text("The menu's grid shows \u{221E} (no time limit) and up to 7 of these.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         } header: {

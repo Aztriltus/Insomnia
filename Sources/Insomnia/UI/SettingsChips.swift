@@ -126,10 +126,12 @@ struct AddDurationPopover: View {
     let add: (TimeInterval) -> Void
     @State private var text = ""
 
-    private var status: SessionMenu.FieldStatus { SessionMenu.fieldStatus(text, mode: .start) }
+    private var parsed: TimeInterval? { DurationParser.parse(text) }
 
     private var problem: String? {
-        guard case let .valid(d, _) = status else { return status == .invalid ? SessionMenu.customHint : nil }
+        guard let d = parsed else {
+            return text.trimmingCharacters(in: .whitespaces).isEmpty ? nil : "Try 45m, 2h or 1d"
+        }
         switch TemplateList.adding(d, to: templates) {
         case .duplicate: return "That one's already there."
         case .full: return "Templates full. Remove one first."
@@ -153,7 +155,7 @@ struct AddDurationPopover: View {
     }
 
     private func submit() {
-        guard case let .valid(d, _) = status, problem == nil else { return }
+        guard let d = parsed, problem == nil else { return }
         add(d)
     }
 }

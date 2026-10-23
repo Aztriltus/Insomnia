@@ -14,7 +14,7 @@ final class ConfigTests: XCTestCase {
 
     func testDefaults() {
         let c = Config()
-        XCTAssertEqual(c.templates, [1800, 3600, 7200, 14400, 28800, 86400])
+        XCTAssertEqual(c.durations, [600, 1800, 3600, 7200, 14400, 28800, 43200])
         XCTAssertEqual(c.lowPowerFloor, 40)
         XCTAssertEqual(c.endFloor, 10)
         XCTAssertEqual(c.nudgeThreshold, 90)
@@ -331,7 +331,7 @@ final class ConfigTests: XCTestCase {
         var c = Config()
         c.hotspotSSID = "iPhone"
         c.tmuxTargets = ["main:0.1"]
-        c.templates = [60]
+        c.durations = [60]
         let data = try Store.makeEncoder().encode(c)
         XCTAssertEqual(try Store.makeDecoder().decode(Config.self, from: data), c)
     }

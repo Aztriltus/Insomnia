@@ -1208,9 +1208,10 @@ final class SessionManager {
             return
         }
         let now = clock()
-        let new = openEnded
+        var new = openEnded
             ? OpenEndedLease.newSession(now: now)
             : SessionMath.newSession(now: now, duration: duration, maxDuration: config.maxDuration)
+        if !openEnded { new.choice = duration }
         // What was on disk before this attempt, read under the lock. A
         // rollback puts exactly this back: an entry an earlier failed restore
         // left behind is evidence, not something this start may clear.
@@ -1287,11 +1288,11 @@ final class SessionManager {
         services?.start(for: self)
     }
 
-    /// "Set a time limit" on a session with no time limit: it ends
-    /// `duration` from now.
+    /// Switch the running session to a grid duration: it ends `duration`
+    /// from now, whether it had a time limit or not.
     func setTimeLimit(_ duration: TimeInterval) async {
-        guard session?.openEnded == true else { return }
-        await replaceSession("set a time limit") { [config] s, now in
+        guard session != nil else { return }
+        await replaceSession("switched to \(Int(duration))s") { [config] s, now in
             OpenEndedLease.settingLimit(s, duration: duration, now: now, maxDuration: config.maxDuration)
         }
     }

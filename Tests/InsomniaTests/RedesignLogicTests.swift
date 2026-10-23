@@ -106,15 +106,15 @@ final class TemplateListTests: XCTestCase {
         let list: [TimeInterval] = [3600, 60, 3600, 7200, 30, 999 * 86400]
         XCTAssertEqual(TemplateList.normalized(list), [60, 3600, 7200])
         let ten = (1...10).map { TimeInterval($0) * 3600 }
-        XCTAssertEqual(TemplateList.normalized(ten), Array(ten.prefix(8)))
-        XCTAssertEqual(TemplateList.overflow(ten), [9 * 3600, 10 * 3600])
+        XCTAssertEqual(TemplateList.normalized(ten), Array(ten.prefix(7)))
+        XCTAssertEqual(TemplateList.overflow(ten), [8 * 3600, 9 * 3600, 10 * 3600])
     }
 
     func testAdding() {
         XCTAssertEqual(TemplateList.adding(45 * 60, to: [3600, 1800]), .added([1800, 45 * 60, 3600]))
         XCTAssertEqual(TemplateList.adding(3600, to: [3600]), .duplicate)
         XCTAssertEqual(TemplateList.adding(30, to: []), .outOfRange)
-        let full = (1...8).map { TimeInterval($0) * 3600 }
+        let full = (1...7).map { TimeInterval($0) * 3600 }
         XCTAssertEqual(TemplateList.adding(30 * 60, to: full), .full)
     }
 
@@ -300,18 +300,18 @@ final class ConfigMigrationTests: XCTestCase {
         try JSONDecoder().decode(Config.self, from: Data(json.utf8))
     }
 
-    func testFreshConfigHasTheNewDefaults() throws {
-        XCTAssertEqual(try decode("{}").templates, TemplateList.freshDefaults)
+    func testFreshConfigHasTheGridDefaults() throws {
+        XCTAssertEqual(try decode("{}").durations, [600, 1800, 3600, 7200, 14400, 28800, 43200])
     }
 
-    func testPresetsBecomeTemplatesKeepingTheEightShortest() throws {
-        let presets = [3 * 86400, 1800, 3600, 7200, 14400, 28800, 43200, 86400, 600, 3600].map(String.init).joined(separator: ",")
-        let c = try decode("{\"presets\": [\(presets)]}")
-        XCTAssertEqual(c.templates, [600, 1800, 3600, 7200, 14400, 28800, 43200, 86400])
+    /// The grid starts from its own defaults: earlier builds' presets and
+    /// templates are not carried over.
+    func testEarlierDurationKeysAreNotCarriedOver() throws {
+        XCTAssertEqual(try decode("{\"presets\": [2592000], \"templates\": [2592000]}").durations, TemplateList.freshDefaults)
     }
 
-    func testTemplatesWinOverPresets() throws {
-        XCTAssertEqual(try decode("{\"templates\": [60], \"presets\": [3600]}").templates, [60])
+    func testSavedDurationsAreNormalized() throws {
+        XCTAssertEqual(try decode("{\"durations\": [3600, 60, 3600]}").durations, [60, 3600])
     }
 
     func testAnAppOnBothListsStaysAtFullSpeed() throws {

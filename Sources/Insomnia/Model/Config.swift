@@ -5,10 +5,11 @@ import Foundation
 /// with defaults filled in.
 struct Config: Codable, Equatable, Sendable {
     // Session
-    /// Saved durations in seconds, shown in the menu and as chips in
-    /// Settings (`TemplateList`): at most 8, shortest first. A config.json
-    /// from an earlier build has `presets` instead, migrated on load.
-    var templates: [TimeInterval] = TemplateList.freshDefaults
+    /// The grid's durations in seconds, after "No time limit", and chips in
+    /// Settings (`TemplateList`): at most 7, shortest first. Earlier
+    /// builds' `presets` and `templates` keys are not carried over: the
+    /// grid starts from its own defaults.
+    var durations: [TimeInterval] = TemplateList.freshDefaults
     /// Hard ceiling on a timed session, including extensions. 30 days. Not
     /// shown in Settings. A session with no time limit is not bound by it.
     var maxDuration: TimeInterval = 30 * 24 * 3600
@@ -142,22 +143,13 @@ struct Config: Codable, Equatable, Sendable {
 
     init() {}
 
-    /// Keys earlier builds wrote that this one only reads, to migrate.
-    private enum LegacyKeys: String, CodingKey {
-        case presets
-    }
-
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
         let d = Config()
-        if let saved = try c.decodeIfPresent([TimeInterval].self, forKey: .templates) {
-            templates = TemplateList.normalized(saved)
-        } else if let presets = try legacy.decodeIfPresent([TimeInterval].self, forKey: .presets) {
-            // Existing users keep the presets they had, the 8 shortest.
-            templates = TemplateList.normalized(presets)
+        if let saved = try c.decodeIfPresent([TimeInterval].self, forKey: .durations) {
+            durations = TemplateList.normalized(saved)
         } else {
-            templates = d.templates
+            durations = d.durations
         }
         maxDuration = try c.decodeIfPresent(TimeInterval.self, forKey: .maxDuration) ?? d.maxDuration
         freezeList = try c.decodeIfPresent([String].self, forKey: .freezeList) ?? d.freezeList

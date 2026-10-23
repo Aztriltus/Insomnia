@@ -40,18 +40,23 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 
 ## Menu bar
 
-**Where it stands:** *(planned)* clicking opens a menu: start for a saved duration, type a custom one, or save a new template. The countdown shows at most two units with suffixes and no seconds.
+**Where it stands:** clicking the eye opens a short menu. Its first line says Active or Inactive and isn't clickable. Under it is a 4×2 grid of ∞, 10m, 30m, 1h, 2h, 4h, 8h and 12h: a cell starts or switches the session, and the highlighted cell ends it. There's no custom-time field and no lid, watts, battery or Wi-Fi line. The countdown shows at most two units with suffixes and no seconds.
 
-**Replaced:** none.
+**Replaced:** a menu of templates with a custom-time field and Save as template (2026-10-23) → a grid with no custom field (2026-10-24).
 
 <details>
-<summary>3 decisions</summary>
+<summary>8 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
-| 2026-10-23 | **Clicking the icon opens a menu of templates (minutes, hours, days) to start a session, with a field to type a custom time and a way to save a new template.** *(planned)* | The owner's brief. | Upstream's typed Days / Hours / Minutes fields in the menu bar. |
-| 2026-10-23 | **The countdown shows at most two units and never seconds: days and hours, hours and minutes, or minutes.** *(planned)* | "Makes more sense to show maybe up to 2 values." | Seconds. |
-| 2026-10-23 | **Units are written as suffixes: `2d 5h`, `5h 12m`, `42m`, `1m`.** *(planned)* | `02:05` is ambiguous between days and hours and hours and minutes. | Colons (`DD:HH`, `HH:MM`). |
+| 2026-10-23 | **Clicking the icon opens a menu of templates (minutes, hours, days) to start a session, with a field to type a custom time and a way to save a new template.** **Superseded 2026-10-24** | The owner's brief. | Upstream's typed Days / Hours / Minutes fields in the menu bar. |
+| 2026-10-23 | **The countdown shows at most two units and never seconds: days and hours, hours and minutes, or minutes.** | "Makes more sense to show maybe up to 2 values." | Seconds. |
+| 2026-10-23 | **Units are written as suffixes: `2d 5h`, `5h 12m`, `42m`, `1m`.** | `02:05` is ambiguous between days and hours and hours and minutes. | Colons (`DD:HH`, `HH:MM`). |
+| 2026-10-24 | **The menu's durations are a grid: ∞, 10m, 30m, 1h, 2h, 4h, 8h, 12h. No custom-time field.** | The custom field and the list "made the menu too long when clicked". | A list of templates; typing a custom time in the menu. |
+| 2026-10-24 | **The first line is not clickable and says whether a session is active.** | Owner's request. | A header that repeats the end time only. |
+| 2026-10-24 | **Grid cells toggle: clicking one starts or switches to it, and it's highlighted; clicking the highlighted cell ends the session. No separate End button.** | Chosen from two options. | Clicking the eye starts ∞ at once, with a separate End session item. |
+| 2026-10-24 | **The lid, watts, battery and Wi-Fi line is left out of the menu.** | "Don't think we need the long line in the menu." | Keeping it. |
+| 2026-10-24 | **Throttled browsers show as a "Throttled" heading over their icons, with no labels; clicking an icon offers Relaunch unthrottled or Advanced settings.** | Owner's request. | A warning line plus one "Relaunch … unthrottled" item per browser. |
 
 </details>
 
@@ -115,7 +120,7 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
-| 2026-10-24 | **Accepted Claude's spec defaults:** a bare number means minutes and the field takes 1 minute to 30 days; up to 8 templates, shortest first, with 30m, 1h, 2h, 4h, 8h and 1d for a fresh install; both clicks open the same menu; End session ends at once; the countdown rounds up to the minute and its width only grows; an app is in one list at most; "no internet" is three failed captive-portal checks 10 s apart; the hotspot is matched by hardware address, then by name; a rejected password notifies once and stops retries; the reminder gets Add 1 hour. *(planned)* | Owner: "Other than that, looks good." | — |
+| 2026-10-24 | **Accepted Claude's spec defaults:** a bare number means minutes and the field takes 1 minute to 30 days (the field was later removed); up to 8 templates, shortest first, with 30m, 1h, 2h, 4h, 8h and 1d for a fresh install (later replaced by the grid's seven); both clicks open the same menu; End session ends at once; the countdown rounds up to the minute and its width only grows; an app is in one list at most; "no internet" is three failed captive-portal checks 10 s apart; the hotspot is matched by hardware address, then by name; a rejected password notifies once and stops retries; the reminder gets Add 1 hour. *(planned)* | Owner: "Other than that, looks good." | — |
 | 2026-10-24 | **Docs layout:** upstream's `docs/spec.md` becomes `docs/design-notes.md`, and the new behaviour spec takes its path; `docs/redesign-spec.md` stays as the build brief until the redesign ships; upstream leftovers (bundle ID, update-check URLs, merge-gate workflow) wait for later. | Approved with the review. | Deleting the redesign brief now. |
 
 </details>
@@ -128,8 +133,9 @@ These came from Claude after the review, not from the owner. Confirm or change e
 - The menu bar shows `∞` for a session with no time limit.
 - "Remove time limit" and "Set a time limit" switch a running session between the two kinds; a new limit counts from now.
 - The internet check uses HTTPS, so no App Transport Security exception is needed.
-- The custom field shows its action and Save as template inside its own row, not as separate menu rows.
-- While starting, the menu shows only "Starting…", the status lines, Settings and Quit.
+- The grid's durations are editable in Settings (up to 7), and earlier builds' presets aren't carried over: everyone starts from the grid defaults.
+- A running session whose duration isn't in the grid gets an End session item, so it can always be ended.
+- While starting, the grid is greyed out.
 - "Try now" is deferred; setup never joins.
 
 ## Open questions

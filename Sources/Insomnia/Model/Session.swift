@@ -12,16 +12,21 @@ struct Session: Codable, Equatable, Sendable {
     /// build, which reads as timed; the recovery agent ignores the key and
     /// honours `endsAt` either way.
     var openEnded: Bool
+    /// The grid duration the session was started with or last switched to,
+    /// so the menu can highlight it. nil for a session with no time limit
+    /// (∞ is highlighted then) and for one an earlier build wrote.
+    var choice: TimeInterval?
 
-    init(startedAt: Date, endsAt: Date, extensions: [TimeInterval] = [], openEnded: Bool = false) {
+    init(startedAt: Date, endsAt: Date, extensions: [TimeInterval] = [], openEnded: Bool = false, choice: TimeInterval? = nil) {
         self.startedAt = startedAt
         self.endsAt = endsAt
         self.extensions = extensions
         self.openEnded = openEnded
+        self.choice = choice
     }
 
     private enum CodingKeys: String, CodingKey {
-        case startedAt, endsAt, extensions, openEnded
+        case startedAt, endsAt, extensions, openEnded, choice
     }
 
     init(from decoder: Decoder) throws {
@@ -30,6 +35,7 @@ struct Session: Codable, Equatable, Sendable {
         endsAt = try c.decode(Date.self, forKey: .endsAt)
         extensions = try c.decode([TimeInterval].self, forKey: .extensions)
         openEnded = try c.decodeIfPresent(Bool.self, forKey: .openEnded) ?? false
+        choice = try? c.decodeIfPresent(TimeInterval.self, forKey: .choice)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -40,6 +46,7 @@ struct Session: Codable, Equatable, Sendable {
         // Written only when set, so a timed session.json reads exactly as
         // earlier builds wrote it.
         if openEnded { try c.encode(true, forKey: .openEnded) }
+        if let choice { try c.encode(choice, forKey: .choice) }
     }
 
     /// Seconds left until `endsAt`, never negative.

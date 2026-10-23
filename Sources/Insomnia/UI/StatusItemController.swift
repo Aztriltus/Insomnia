@@ -28,9 +28,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private var hostingView: StatusHostingView?
     private var widthWriter: StatusWidthWriter?
-    /// The custom field in the open menu, focused once the menu is up.
-    private var openField: CustomTimeField?
-    private var openMenu: NSMenu?
     /// The width the status item is heading for.
     private(set) var widthTarget: CGFloat = 0
     private var addHourObserver: NSObjectProtocol?
@@ -189,7 +186,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// What the session part of the menu shows right now.
     var menuState: SessionMenu.State {
         if model.phase == .starting { return .starting }
-        if let s = manager.session { return s.openEnded ? .openEnded : .running(endsAt: s.endsAt) }
+        if let s = manager.session { return s.openEnded ? .openEnded : .running(endsAt: s.endsAt, choice: s.choice) }
         if let failure = model.startFailure { return .failed(reason: failure) }
         return .idle
     }
@@ -203,8 +200,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.delegate = self
-        openField = nil
-        for item in SessionMenu.items(state: menuState, templates: manager.config.templates, now: clock(), maxDuration: manager.config.maxDuration) {
+        for item in SessionMenu.items(state: menuState, durations: manager.config.durations, now: clock()) {
             menu.addItem(menuItem(item))
         }
         menu.addItem(.separator())
@@ -214,116 +210,90 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             settings: #selector(menuOpenSettings),
             quit: #selector(menuQuit),
             relaunchBrowser: #selector(menuRelaunchBrowser(_:)),
-            stopWaitingForOutput: #selector(menuStopWaitingForOutput(_:))
+            stopWaitingForOutput: #selector(menuStopWaitingForOutput(_:)),
+            throttledTapped: { [weak self] browser in
+                // After the menu has closed: one menu at a time.
+                DispatchQueue.main.async { self?.showThrottledMenu(browser) }
+            }
         )
         for item in tail.items {
             tail.removeItem(item)
             menu.addItem(item)
         }
-        openMenu = menu
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
     }
 
     private func menuItem(_ item: SessionMenu.Item) -> NSMenuItem {
         switch item {
-        case let .header(text):
+        case let .status(text, active):
             let entry = NSMenuItem(title: text, action: nil, keyEquivalent: "")
             entry.isEnabled = false
-            entry.attributedTitle = NSAttributedString(string: text, attributes: [.font: NSFont.menuFont(ofSize: 0).bold, .foregroundColor: NSColor.labelColor])
+            entry.attributedTitle = NSAttributedString(string: text, attributes: [
+                .font: NSFont.menuFont(ofSize: 0).bold,
+                .foregroundColor: active ? NSColor.labelColor : NSColor.secondaryLabelColor,
+            ])
             return entry
         case let .failure(text):
             let entry = NSMenuItem(title: text, action: nil, keyEquivalent: "")
             entry.isEnabled = false
             entry.attributedTitle = NSAttributedString(string: text, attributes: [.font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize), .foregroundColor: NSColor.systemOrange])
             return entry
-        case let .label(text):
-            return NSMenuItem.sectionHeader(title: text)
-        case let .template(duration, title, mode):
-            let entry = NSMenuItem(title: title, action: #selector(menuTemplate(_:)), keyEquivalent: "")
-            entry.target = self
-            entry.representedObject = TemplateChoice(duration: duration, mode: mode)
-            entry.indentationLevel = 1
-            return entry
-        case .noTimeLimit:
-            let entry = NSMenuItem(title: SessionMenu.noTimeLimitTitle, action: #selector(menuNoTimeLimit), keyEquivalent: "")
-            entry.target = self
-            entry.indentationLevel = 1
-            return entry
-        case let .customField(mode):
-            let view = CustomTimeField(
-                mode: mode,
-                templates: { [manager] in manager.config.templates },
-                onCommit: { [weak self] d in self?.customCommitted(d, mode: mode) },
-                onSave: { [weak self] d in self?.saveTemplate(d) },
-                onCancel: { [weak self] in self?.openMenu?.cancelTracking() }
-            )
-            openField = view
+        case let .grid(cells, selected, enabled):
             let entry = NSMenuItem()
-            entry.view = view
-            return entry
-        case .removeTimeLimit:
-            let entry = NSMenuItem(title: SessionMenu.removeTimeLimitTitle, action: #selector(menuRemoveTimeLimit), keyEquivalent: "")
-            entry.target = self
+            entry.view = DurationGridView(cells: cells, selected: selected, enabled: enabled) { [weak self] cell in
+                self?.gridTapped(cell)
+            }
             return entry
         case .endSession:
             let entry = NSMenuItem(title: SessionMenu.endSessionTitle, action: #selector(menuEndSession), keyEquivalent: "")
             entry.target = self
             return entry
-        case .separator:
-            return .separator()
-        }
-    }
-
-    func menuWillOpen(_ menu: NSMenu) {
-        guard let field = openField else { return }
-        // The menu's window exists only once it is on screen; focus on the
-        // next turn of the tracking run loop.
-        RunLoop.main.perform(inModes: [.eventTracking, .default]) {
-            MainActor.assumeIsolated { field.focus() }
         }
     }
 
     func menuDidClose(_ menu: NSMenu) {
-        openField = nil
-        openMenu = nil
         // A start failure is shown until the menu has been seen once.
         if model.startFailure != nil, !manager.isActive, model.phase == .idle {
             model.startFailure = nil
         }
     }
 
+    /// A browser's icon in the Throttled row: what to do about it.
+    private func showThrottledMenu(_ browser: ThrottledBrowser) {
+        guard let button = statusItem.button else { return }
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let title = NSMenuItem(title: "\(browser.name) is throttled", action: nil, keyEquivalent: "")
+        title.isEnabled = false
+        menu.addItem(title)
+        let relaunch = NSMenuItem(title: "Relaunch unthrottled", action: #selector(menuRelaunchBrowser(_:)), keyEquivalent: "")
+        relaunch.target = self
+        relaunch.representedObject = browser
+        menu.addItem(relaunch)
+        let advanced = NSMenuItem(title: "Advanced settings\u{2026}", action: #selector(menuOpenAdvanced), keyEquivalent: "")
+        advanced.target = self
+        menu.addItem(advanced)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
+    }
+
+    @objc private func menuOpenAdvanced() {
+        manager.updateConfig { $0.advancedExpanded = true }
+        showSettings()
+    }
+
     // MARK: Session actions
 
-    private final class TemplateChoice: NSObject {
-        let duration: TimeInterval
-        let mode: SessionMenu.Mode
-        init(duration: TimeInterval, mode: SessionMenu.Mode) {
-            self.duration = duration
-            self.mode = mode
+    /// A grid cell was clicked (`SessionMenu.action`).
+    func gridTapped(_ cell: SessionMenu.Cell) {
+        switch SessionMenu.action(for: cell, in: menuState) {
+        case let .start(.duration(d)): start(.timed(d))
+        case .start(.openEnded): start(.openEnded)
+        case let .switchTo(.duration(d)): Task { await manager.setTimeLimit(d) }
+        case .switchTo(.openEnded): Task { await manager.removeTimeLimit() }
+        case .end: Task { await manager.end(reason: .user) }
+        case .none: break
         }
     }
-
-    @objc private func menuTemplate(_ sender: NSMenuItem) {
-        guard let choice = sender.representedObject as? TemplateChoice else { return }
-        act(choice.duration, mode: choice.mode)
-    }
-
-    private func customCommitted(_ duration: TimeInterval, mode: SessionMenu.Mode) {
-        openMenu?.cancelTracking()
-        act(duration, mode: mode)
-    }
-
-    private func act(_ duration: TimeInterval, mode: SessionMenu.Mode) {
-        switch mode {
-        case .start: start(.timed(duration))
-        case .add: addTime(duration)
-        case .setLimit: Task { await manager.setTimeLimit(duration) }
-        }
-    }
-
-    @objc private func menuNoTimeLimit() { start(.openEnded) }
-
-    @objc private func menuRemoveTimeLimit() { Task { await manager.removeTimeLimit() } }
 
     @objc private func menuEndSession() {
         Task { await manager.end(reason: .user) }
@@ -359,16 +329,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
     }
 
-    /// Add 1 hour from the reminder, or a template while running.
+    /// Add 1 hour from the reminder.
     func addTime(_ duration: TimeInterval) {
         guard let s = manager.session, !s.openEnded else { return }
         Task { await manager.extend(by: duration) }
-    }
-
-    private func saveTemplate(_ duration: TimeInterval) {
-        if case let .added(list) = TemplateList.adding(duration, to: manager.config.templates) {
-            manager.updateConfig { $0.templates = list }
-        }
     }
 
     // MARK: Status lines
@@ -379,16 +343,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         StatusMenu.items(
             sessionActive: manager.isActive,
             sleepHeld: manager.state.sleepDisabledByUs,
-            machine: StatusLines.machine(
-                lidClosed: status.lidClosed,
-                watts: status.instantWatts(),
-                wifiSSID: WiFiStatusName.display(
-                    ssid: status.wifiSSID,
-                    locationAuthorized: (status as? LiveStatusSource)?.locationPermission.isAuthorized ?? true
-                ),
-                batteryPercent: status.batteryPercent,
-                isCharging: status.isCharging
-            ),
+            // The lid, watts, battery and Wi-Fi line is left out: the menu
+            // is for starting and stopping, and that line only made it long.
+            machine: nil,
             actions: StatusLines.actions(
                 frozenCount: status.frozenCount,
                 dockerPaused: status.dockerPaused,

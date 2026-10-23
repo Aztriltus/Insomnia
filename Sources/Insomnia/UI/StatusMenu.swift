@@ -18,6 +18,9 @@ enum StatusMenu {
             /// bundle id and name, so the item still names the same browser
             /// after a scan replaces the list.
             case relaunchBrowser(ThrottledBrowser)
+            /// The throttled browsers as one group: a "Throttled" heading
+            /// over a row of their icons (`ThrottledAppsView`).
+            case throttled([ThrottledBrowser])
             /// Drop the saved volume of this output device: it is not
             /// connected, and Insomnia stops waiting for it. Carries the
             /// save the item was built for, its save ID included, so a
@@ -29,6 +32,7 @@ enum StatusMenu {
         let kind: Kind
     }
 
+    static let throttledTitle = "Throttled"
     static let settingsTitle = "Settings\u{2026}"
     static let quitTitle = "Quit Insomnia"
 
@@ -73,14 +77,9 @@ enum StatusMenu {
         if lidSimulationBuild {
             out.append(Item(title: LidSimulationBuild.marker, kind: .warning))
         }
-        if let throttle = present(StatusLines.throttleWarning(throttledBrowsers.map(\.name))) {
-            out.append(Item(title: throttle, kind: .warning))
-            // The warning alone is a dead end; each throttled browser gets a
-            // live item so the relaunch is still one click away, as it was
-            // from the popover this menu replaced.
-            for browser in throttledBrowsers {
-                out.append(Item(title: "Relaunch \(browser.name) unthrottled", kind: .relaunchBrowser(browser)))
-            }
+        if !throttledBrowsers.isEmpty {
+            // One group, icons only; clicking one offers the relaunch.
+            out.append(Item(title: throttledTitle, kind: .throttled(throttledBrowsers)))
         }
         for problem in relaunchProblems.compactMap(present) {
             out.append(Item(title: "\u{26A0} \(problem)", kind: .warning))
@@ -129,7 +128,8 @@ enum StatusMenu {
         settings: Selector,
         quit: Selector,
         relaunchBrowser: Selector,
-        stopWaitingForOutput: Selector
+        stopWaitingForOutput: Selector,
+        throttledTapped: ((ThrottledBrowser) -> Void)? = nil
     ) -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -153,6 +153,11 @@ enum StatusMenu {
                 menu.addItem(action(title: item.title, selector: settings, key: ",", target: target))
             case .quit:
                 menu.addItem(action(title: item.title, selector: quit, key: "q", target: target))
+            case let .throttled(browsers):
+                menu.addItem(.sectionHeader(title: item.title))
+                let row = NSMenuItem()
+                row.view = ThrottledAppsView(browsers: browsers, width: 260) { browser in throttledTapped?(browser) }
+                menu.addItem(row)
             case let .relaunchBrowser(browser):
                 let entry = action(title: item.title, selector: relaunchBrowser, key: "", target: target)
                 entry.representedObject = browser

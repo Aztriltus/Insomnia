@@ -27,15 +27,18 @@ enum OpenEndedLease {
     static func removingLimit(_ session: Session, now: Date) -> Session {
         var s = session
         s.openEnded = true
+        s.choice = nil
         s.endsAt = now.addingTimeInterval(lease)
         return s
     }
 
-    /// "Set a time limit": the session ends `duration` from now (not from
-    /// its start), capped at `maxDuration`.
+    /// Switching to a grid duration: the session ends `duration` from now
+    /// (not from its start), capped at `maxDuration`, whether it had a time
+    /// limit or not.
     static func settingLimit(_ session: Session, duration: TimeInterval, now: Date, maxDuration: TimeInterval) -> Session {
         var s = session
         s.openEnded = false
+        s.choice = duration
         s.endsAt = SessionMath.endsAt(start: now, duration: duration, maxDuration: maxDuration)
         return s
     }
