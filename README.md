@@ -249,7 +249,7 @@ swift test
 
 The tests use fakes and temporary folders, so they never change your power
 settings. See [Contributing](CONTRIBUTING.md), [Security reporting](SECURITY.md),
-[Release validation](docs/release-validation.md) and [Design notes](docs/spec.md).
+[Release validation](docs/release-validation.md), [Spec](docs/spec.md), [Decisions](docs/decisions.md), [Engineering](docs/engineering.md) and [Design notes](docs/design-notes.md).
 
 ## Star history
 
