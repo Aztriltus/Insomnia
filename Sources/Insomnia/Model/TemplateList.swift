@@ -1,10 +1,10 @@
 import Foundation
 
 /// The durations in the menu's grid, after "No time limit". Pure list
-/// rules: at most `capacity` (the grid is 4 by 2, and ∞ takes a cell),
+/// rules: at most `capacity` (the grid is 3 by 3, and ∞ takes a cell),
 /// shortest first, no duplicates.
 enum TemplateList {
-    static let capacity = 7
+    static let capacity = 8
 
     /// What a fresh install offers.
     static let freshDefaults: [TimeInterval] = [
@@ -15,7 +15,12 @@ enum TemplateList {
         4 * 3600,
         8 * 3600,
         12 * 3600,
+        24 * 3600,
     ]
+
+    /// The defaults before 24h was added. A config.json holding exactly
+    /// these gets the new defaults; one the user edited is left alone.
+    static let previousDefaults: [TimeInterval] = Array(freshDefaults.dropLast())
 
     enum AddResult: Equatable {
         case added([TimeInterval])

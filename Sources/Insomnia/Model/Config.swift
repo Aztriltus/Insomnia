@@ -6,7 +6,7 @@ import Foundation
 struct Config: Codable, Equatable, Sendable {
     // Session
     /// The grid's durations in seconds, after "No time limit", and chips in
-    /// Settings (`TemplateList`): at most 7, shortest first. Earlier
+    /// Settings (`TemplateList`): at most 8, shortest first. Earlier
     /// builds' `presets` and `templates` keys are not carried over: the
     /// grid starts from its own defaults.
     var durations: [TimeInterval] = TemplateList.freshDefaults
@@ -150,7 +150,7 @@ struct Config: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = Config()
         if let saved = try c.decodeIfPresent([TimeInterval].self, forKey: .durations) {
-            durations = TemplateList.normalized(saved)
+            durations = saved == TemplateList.previousDefaults ? d.durations : TemplateList.normalized(saved)
         } else {
             durations = d.durations
         }

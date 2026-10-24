@@ -83,9 +83,11 @@ enum DurationLabel {
         return unit(p.minutes, "minute")
     }
 
-    /// `30m`, `1h`, `1h 30m`, `2d`, `1d 4h`, for the Settings chips.
+    /// `30m`, `1h`, `1h 30m`, `24h`, `2d`, `1d 4h`, for the grid and the
+    /// Settings chips. Exactly a day reads `24h`, as people say it.
     static func short(_ duration: TimeInterval) -> String {
         let p = parts(duration)
+        if p.days == 1, p.hours == 0, p.minutes == 0 { return "24h" }
         if p.days > 0 { return p.hours > 0 ? "\(p.days)d \(p.hours)h" : "\(p.days)d" }
         if p.hours > 0 { return p.minutes > 0 ? "\(p.hours)h \(p.minutes)m" : "\(p.hours)h" }
         return "\(p.minutes)m"

@@ -19,8 +19,9 @@ final class SessionMenuTests: XCTestCase {
         SessionMenu.items(state: state, durations: durations, now: now, calendar: calendar, locale: locale)
     }
 
-    func testTheGridIsInfinityThenTheSevenDurations() {
-        XCTAssertEqual(cells.map(\.title), ["\u{221E}", "10m", "30m", "1h", "2h", "4h", "8h", "12h"])
+    func testTheGridIsInfinityThenTheEightDurations() {
+        XCTAssertEqual(cells.map(\.title), ["\u{221E}", "10m", "30m", "1h", "2h", "4h", "8h", "12h", "24h"])
+        XCTAssertEqual(cells.count, 9, "a full 3 by 3 grid")
     }
 
     let section = SessionMenu.Item.section("Keep awake for")

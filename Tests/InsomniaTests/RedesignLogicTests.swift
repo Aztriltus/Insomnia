@@ -98,6 +98,8 @@ final class DurationParserTests: XCTestCase {
         XCTAssertEqual(DurationLabel.short(90 * 60), "1h 30m")
         XCTAssertEqual(DurationLabel.short(86400 + 4 * 3600), "1d 4h")
         XCTAssertEqual(DurationLabel.short(30 * 60), "30m")
+        XCTAssertEqual(DurationLabel.short(86400), "24h")
+        XCTAssertEqual(DurationLabel.short(2 * 86400), "2d")
     }
 }
 
@@ -106,15 +108,15 @@ final class TemplateListTests: XCTestCase {
         let list: [TimeInterval] = [3600, 60, 3600, 7200, 30, 999 * 86400]
         XCTAssertEqual(TemplateList.normalized(list), [60, 3600, 7200])
         let ten = (1...10).map { TimeInterval($0) * 3600 }
-        XCTAssertEqual(TemplateList.normalized(ten), Array(ten.prefix(7)))
-        XCTAssertEqual(TemplateList.overflow(ten), [8 * 3600, 9 * 3600, 10 * 3600])
+        XCTAssertEqual(TemplateList.normalized(ten), Array(ten.prefix(8)))
+        XCTAssertEqual(TemplateList.overflow(ten), [9 * 3600, 10 * 3600])
     }
 
     func testAdding() {
         XCTAssertEqual(TemplateList.adding(45 * 60, to: [3600, 1800]), .added([1800, 45 * 60, 3600]))
         XCTAssertEqual(TemplateList.adding(3600, to: [3600]), .duplicate)
         XCTAssertEqual(TemplateList.adding(30, to: []), .outOfRange)
-        let full = (1...7).map { TimeInterval($0) * 3600 }
+        let full = (1...8).map { TimeInterval($0) * 3600 }
         XCTAssertEqual(TemplateList.adding(30 * 60, to: full), .full)
     }
 
@@ -301,13 +303,19 @@ final class ConfigMigrationTests: XCTestCase {
     }
 
     func testFreshConfigHasTheGridDefaults() throws {
-        XCTAssertEqual(try decode("{}").durations, [600, 1800, 3600, 7200, 14400, 28800, 43200])
+        XCTAssertEqual(try decode("{}").durations, [600, 1800, 3600, 7200, 14400, 28800, 43200, 86400])
     }
 
     /// The grid starts from its own defaults: earlier builds' presets and
     /// templates are not carried over.
     func testEarlierDurationKeysAreNotCarriedOver() throws {
         XCTAssertEqual(try decode("{\"presets\": [2592000], \"templates\": [2592000]}").durations, TemplateList.freshDefaults)
+    }
+
+    /// The old seven defaults gain 24h; an edited list doesn't.
+    func testTheOldDefaultsGain24Hours() throws {
+        XCTAssertEqual(try decode("{\"durations\": [600, 1800, 3600, 7200, 14400, 28800, 43200]}").durations, TemplateList.freshDefaults)
+        XCTAssertEqual(try decode("{\"durations\": [600, 3600]}").durations, [600, 3600])
     }
 
     func testSavedDurationsAreNormalized() throws {

@@ -45,7 +45,7 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 **Replaced:** a menu of templates with a custom-time field and Save as template (2026-10-23) → a grid with no custom field (2026-10-24) · a two-unit countdown in the menu bar (2026-10-23) → the eye alone (2026-10-24).
 
 <details>
-<summary>19 decisions</summary>
+<summary>20 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
@@ -62,6 +62,7 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 | 2026-10-24 | **The menu follows macOS’s Battery menu: a first row with the eye (open or closed) and the state in bold, the end time in grey on the right, grey section headings, standard text size, separators between sections.** | Owner’s request, with a screenshot of the Battery menu. | A dot before Active; small text for warnings. |
 | 2026-10-24 | **The running cell is drawn by hand: accent fill, white text.** | NSButton’s accent bezel turns grey in a menu, whose window is never active; the owner expected the Battery menu’s look. | NSButton bezel colour. |
 | 2026-10-24 | **The eye is centred by its visible shape, in the menu bar and the menu; the menu’s eye blinks when the state changes.** | The open eye sat 1.75 pt high; "maybe eye should animate in the menu too". | Centring the 18 pt canvas. |
+| 2026-10-24 | **24h is the eighth duration, filling a 3 by 3 grid; exactly a day reads "24h"; a saved list of the old seven defaults gains it.** | "Add 1 more grid item option for 24h so it fills up the 3x3 grid." | A half-empty last row. |
 | 2026-10-24 | **The grid has three columns.** | The menu was too wide with four; owner suggested fewer columns. | Four wider columns. |
 | 2026-10-24 | **The status item is the eye as the button’s image in the standard square slot; it no longer animates.** | "Keep it to minimum or to apple’s standard"; the custom view sat high and wide. | A custom-drawn view with a blink. |
 | 2026-10-24 | **All copy is short: no help lines that repeat a title, no engineer explanations, no raw errors; ending a session yourself posts no notification.** | "Deslop the whole app for long labels or redundant text." | The longer explanatory copy. |
@@ -123,6 +124,22 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 | 2026-10-24 | **Settings checks macOS’s Ask to join hotspots (`AutoHotspotMode`) and asks for Automatically when it’s Ask or Never.** | Only macOS can wake a hotspot that isn’t broadcasting; Ask needs someone at the Mac. | Leaving it to the README. |
 | 2026-10-24 | **Try now joins the saved hotspot once to check the password, with failover paused, then disconnects so macOS rejoins the previous network.** | "Are we able to offer a step to let users try?" | Leaving the status at Not tried yet until a real outage. |
 | 2026-10-24 | **The auto-join row is a requirement with a warning icon and a Done button, because a normally launched app is refused that preferences file.** | The row showed while the setting was Automatically; "it needs to show warning icon so it looks more like a requirement". | Claiming the setting is off when it can’t be read; asking for Full Disk Access. |
+
+</details>
+
+## Distribution
+
+**Where it stands:** a DMG built by `scripts/build-dmg.sh`, ad-hoc signed and not notarized; installing runs the bundled installer. TestFlight isn't possible for this app.
+
+**Replaced:** none.
+
+<details>
+<summary>2 decisions</summary>
+
+| Date | Decision | Why | Turned down |
+| --- | --- | --- | --- |
+| 2026-10-24 | **Distribute as a DMG holding the app, the installer scripts, double-clickable Install and Uninstall commands, and a Read Me.** | "Can we build a dmg so I can distribute?" Insomnia needs its installer (sudoers rule, recovery agent), so drag-to-Applications can't work. | A drag-to-Applications DMG. |
+| 2026-10-24 | **No TestFlight.** | TestFlight only carries App Store builds, which must be sandboxed; Insomnia runs `sudo pmset`, pauses other apps' processes, uses private display APIs and installs a launchd agent. | Reworking the app for the App Store. |
 
 </details>
 

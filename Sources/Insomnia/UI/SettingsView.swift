@@ -165,7 +165,7 @@ struct SettingsView: View {
                         }
                 }
             }
-            Text("Up to 7, shown with \u{221E} in the menu.")
+            Text("Up to 8, shown with \u{221E} in the menu.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         } header: {

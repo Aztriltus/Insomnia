@@ -14,7 +14,7 @@ final class ConfigTests: XCTestCase {
 
     func testDefaults() {
         let c = Config()
-        XCTAssertEqual(c.durations, [600, 1800, 3600, 7200, 14400, 28800, 43200])
+        XCTAssertEqual(c.durations, [600, 1800, 3600, 7200, 14400, 28800, 43200, 86400])
         XCTAssertEqual(c.lowPowerFloor, 40)
         XCTAssertEqual(c.endFloor, 10)
         XCTAssertEqual(c.nudgeThreshold, 90)

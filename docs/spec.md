@@ -62,7 +62,7 @@ Quit Insomnia                   ⌘Q
 
 - **The first row** shows the eye (closed when inactive, open when active, as in the menu bar; it blinks open or shut in place when the state changes while the menu is open), the state in bold ("Inactive", "Starting…", "Active"), and on the right in grey, "until 6:40 PM" ("until Sat 6:40 PM", "until Oct 30, 6:40 PM" further out) or "No time limit". It isn't clickable.
 - **Under it**, only lines that need attention, in orange: "Couldn't start. Try again." (until the next start, or until the menu has been opened and closed once; the reason is in the log), "Not keeping the Mac awake", "Sleep is still turned off", "Hotspot password missing", "Hotspot password needs re-entering", "Something went wrong", "A power command is stuck", "Another app has turned sleep off", "Couldn't relaunch the browser", and "Headphones is still muted" with "Stop waiting for Headphones".
-- **Keep awake for** is a grid of ∞ (no time limit) and the durations from Settings (10m, 30m, 1h, 2h, 4h, 8h and 12h by default), three to a row. The menu stays open after a click and updates in place.
+- **Keep awake for** is a grid of ∞ (no time limit) and the durations from Settings (10m, 30m, 1h, 2h, 4h, 8h, 12h and 24h by default), three to a row, filling a 3 by 3 grid. The menu stays open after a click and updates in place.
   - With nothing running, clicking a cell starts that session.
   - While a session runs, its cell is filled in the accent colour with white text, like the Battery menu’s active mode, and its label counts down the time left ("2h" becomes "1h 59m", …; ∞ stays ∞). Clicking another cell switches to it: the session then ends that long from now, or has no time limit for ∞. Clicking the running cell ends the session and its label goes back to normal.
   - While starting, the grid is greyed out.
@@ -72,8 +72,8 @@ Quit Insomnia                   ⌘Q
 
 ### Durations
 
-- Up to 7, always shortest first, edited in Settings. ∞ is always in the grid and isn't one of them.
-- A fresh install, and anyone upgrading from an earlier build, starts with 10m, 30m, 1h, 2h, 4h, 8h and 12h.
+- Up to 8, always shortest first, edited in Settings. Exactly one day reads "24h". ∞ is always in the grid and isn't one of them.
+- A fresh install, and anyone upgrading from an earlier build, starts with 10m, 30m, 1h, 2h, 4h, 8h, 12h and 24h. A saved list that is exactly the earlier seven defaults gains 24h; an edited list is left alone.
 
 ## 3. Settings
 
@@ -83,7 +83,7 @@ One window. The top level holds:
 | --- | --- | --- |
 | Pause when the lid closes | Apps shown as small icon and name chips; paused while the lid is closed, resumed when it opens | Slack, WhatsApp, Discord (when installed) |
 | Keep at full speed | Apps never paused or slowed down during a session | Common terminals, editors, AI apps, agent browsers, Docker, Tailscale, LM Studio, Ollama (when installed) |
-| Durations | The grid's durations, as chips with add and remove (up to 7) | 10m, 30m, 1h, 2h, 4h, 8h, 12h |
+| Durations | The grid's durations, as chips with add and remove (up to 8) | 10m, 30m, 1h, 2h, 4h, 8h, 12h, 24h |
 | Hotspot backup | The saved hotspot, with Change… and Remove (section 6) | not set |
 | Open at login | Shows what macOS has on file; a pending approval shows "Waiting for approval in System Settings" with Open Login Items; an error shows under it | off |
 | Advanced | Collapsed group; remembers whether it was open | collapsed |

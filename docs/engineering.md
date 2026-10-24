@@ -129,6 +129,12 @@ App bundle:
 ./scripts/build-app.sh --output build
 ```
 
+Disk image to hand to other people (`dist/Insomnia-<version>.dmg` and its `.sha256`): the app, `install.sh`, `uninstall.sh`, "Install Insomnia.command", "Uninstall Insomnia.command" and a Read Me with the Gatekeeper steps. It's ad-hoc signed and not notarized, like the release zip:
+
+```bash
+./scripts/build-dmg.sh
+```
+
 Testing:
 
 - `InsomniaTests` has 22 test files, about 515 tests, and runs in under a minute. On 2026-10-24 it was cut from about 1,250 tests and 20 minutes down to the essentials: the session engine, recovery and reconcile, sleep guard, lid actions and freezing, floors, failover, config, the menu and the redesign's pure logic, plus 15 core recovery-script cases and the 2 recovery-agent signature checks. The removed tests are in git history before that date.
