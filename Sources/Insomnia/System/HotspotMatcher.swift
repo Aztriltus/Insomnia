@@ -1,4 +1,5 @@
 import Foundation
+import SystemConfiguration
 
 /// One network from a Wi-Fi scan, reduced to what matching needs.
 struct ScannedNetwork: Equatable, Sendable {
@@ -121,6 +122,9 @@ enum HotspotAutoJoin: Equatable, Sendable {
     case automatic
     /// "Ask" or "Never", or no value (macOS's default): not automatic.
     case off(String?)
+    /// macOS didn't let Insomnia read it. A normally launched app is refused
+    /// this file unless it has Full Disk Access.
+    case unknown
 
     static let preferencesFile = URL(fileURLWithPath: "/Library/Preferences/SystemConfiguration/com.apple.airport.preferences.plist")
     static let key = "AutoHotspotMode"
@@ -130,12 +134,32 @@ enum HotspotAutoJoin: Equatable, Sendable {
         value == "Automatic" ? .automatic : .off(value)
     }
 
-    /// Reads the setting; the file is readable by any user.
+    /// Reads the setting through SystemConfiguration, which owns the file,
+    /// then from the file itself; `unknown` when macOS refuses both.
     static func read(from file: URL = preferencesFile) -> HotspotAutoJoin {
-        guard let data = try? Data(contentsOf: file),
-              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
-        else { return .off(nil) }
-        return parse(plist[key] as? String)
+        if file == preferencesFile,
+           let prefs = SCPreferencesCreate(nil, "Insomnia" as CFString, "com.apple.airport.preferences.plist" as CFString),
+           let value = SCPreferencesGetValue(prefs, key as CFString) as? String {
+            return parse(value)
+        }
+        do {
+            let data = try Data(contentsOf: file)
+            let plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+            return parse(plist?[key] as? String)
+        } catch {
+            return .unknown
+        }
+    }
+
+    /// Whether Settings shows the requirement: always when the setting is
+    /// known to be off, and when it can't be read until the user says it's
+    /// done. Pure.
+    static func showsRequirement(_ mode: HotspotAutoJoin, confirmed: Bool) -> Bool {
+        switch mode {
+        case .automatic: false
+        case .off: true
+        case .unknown: !confirmed
+        }
     }
 
     /// Opens System Settings at Wi-Fi.

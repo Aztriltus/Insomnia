@@ -357,16 +357,19 @@ final class HotspotSetupTests: XCTestCase {
         }
         try PropertyListSerialization.data(fromPropertyList: ["Version": 7200], format: .xml, options: 0).write(to: file)
         XCTAssertEqual(HotspotAutoJoin.read(from: file), .off(nil))
-        XCTAssertEqual(HotspotAutoJoin.read(from: dir.appendingPathComponent("missing.plist")), .off(nil))
+        XCTAssertEqual(HotspotAutoJoin.read(from: dir.appendingPathComponent("missing.plist")), .unknown, "a file that can't be read is unknown, not off")
     }
 
-    func testTheTipSaysWhyForEachValue() {
-        XCTAssertTrue(SettingsView.autoJoinTip("Never").contains("set to Never"))
-        XCTAssertTrue(SettingsView.autoJoinTip("Ask").contains("needs someone at the Mac"))
-        XCTAssertTrue(SettingsView.autoJoinTip(nil).contains("needs someone at the Mac"))
-        for mode in ["Never", "Ask"] {
-            XCTAssertTrue(SettingsView.autoJoinTip(mode).hasPrefix("Set Ask to join hotspots to Automatically."))
-        }
+    /// Shown when the setting is known to be off, whatever the user said;
+    /// when it can't be read, until the user says it's done; never when it
+    /// reads Automatic.
+    func testWhenTheRequirementShows() {
+        XCTAssertFalse(HotspotAutoJoin.showsRequirement(.automatic, confirmed: false))
+        XCTAssertTrue(HotspotAutoJoin.showsRequirement(.off("Never"), confirmed: true))
+        XCTAssertTrue(HotspotAutoJoin.showsRequirement(.off("Ask"), confirmed: false))
+        XCTAssertTrue(HotspotAutoJoin.showsRequirement(.unknown, confirmed: false))
+        XCTAssertFalse(HotspotAutoJoin.showsRequirement(.unknown, confirmed: true))
+        XCTAssertEqual(SettingsView.autoJoinRequirement, "Set Ask to join hotspots to Automatically")
     }
 
     func testSavedNetworksOutOfRangeFollowTheScan() {

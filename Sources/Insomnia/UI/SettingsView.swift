@@ -20,6 +20,9 @@ struct SettingsView: View {
     @State private var hotspot = HotspotPasswordField()
     /// A save or removal the keychain refused.
     @State private var saveNotice: String?
+    /// A hotspot save is running: the name changes before the password is
+    /// stored, and a check then would read the old network's item.
+    @State private var savingHotspot = false
     /// Names of the apps "Pause every other app" would pause right now.
     @State private var wouldFreeze: [String] = []
     @State private var picker: Config.AppList?
@@ -60,7 +63,7 @@ struct SettingsView: View {
             loginItem.refresh()
         }
         .onChange(of: manager.services?.status.hotspotPasswordReport) { recheckPassword() }
-        .onChange(of: HotspotSSID.normalized(manager.config.hotspotSSID)) { recheckPassword() }
+        .onChange(of: HotspotSSID.normalized(manager.config.hotspotSSID)) { if !savingHotspot { recheckPassword() } }
         .onChange(of: manager.config) { refreshWouldFreeze() }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in refreshWouldFreeze() }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in refreshWouldFreeze() }
@@ -196,14 +199,15 @@ struct SettingsView: View {
                     Button("Remove", action: removeHotspot)
                 }
             }
-            if case let .off(mode) = autoJoin {
+            if HotspotAutoJoin.showsRequirement(autoJoin, confirmed: manager.config.hotspotAutoJoinConfirmed) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(Self.autoJoinTip(mode))
-                        .font(.callout)
+                    Label(Self.autoJoinRequirement, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                     Button("Open Wi-Fi Settings") { NSWorkspace.shared.open(HotspotAutoJoin.settingsURL) }
+                    if autoJoin == .unknown {
+                        Button("Done") { update { $0.hotspotAutoJoinConfirmed = true } }
+                    }
                 }
             }
             if locationPermission.isDenied {
@@ -222,14 +226,8 @@ struct SettingsView: View {
         }
     }
 
-    /// Why "Ask to join hotspots" should be Automatically, for the value it
-    /// has now. Static so the copy can be tested.
-    static func autoJoinTip(_ mode: String?) -> String {
-        if mode == "Never" {
-            return "Set Ask to join hotspots to Automatically. It\u{2019}s set to Never."
-        }
-        return "Set Ask to join hotspots to Automatically. Asking needs someone at the Mac."
-    }
+    /// The requirement for macOS to join the hotspot with the lid closed.
+    static let autoJoinRequirement = "Set Ask to join hotspots to Automatically"
 
     private var hotspotStatus: String {
         guard let last = manager.config.hotspotLastJoin else { return "Not tried yet" }
@@ -244,6 +242,8 @@ struct SettingsView: View {
     /// for an open network). Config first, so the keychain item is saved
     /// under the new name; the failover forgets its last result.
     private func saveHotspot(_ row: HotspotMatcher.Row, password: String) {
+        savingHotspot = true
+        saveNotice = nil
         update { c in
             c.hotspotSSID = row.ssid
             c.hotspotBSSIDs = Array(row.bssids.prefix(HotspotMatcher.maxBSSIDs))
@@ -254,6 +254,7 @@ struct SettingsView: View {
             let outcome = await Self.storePassword(password, in: secrets)
             Self.passwordStored(outcome, configuredSSID: manager.config.hotspotSSID, services: manager.services)
             if case let .failed(notice) = outcome { saveNotice = notice } else { saveNotice = nil }
+            savingHotspot = false
             recheckPassword()
         }
     }

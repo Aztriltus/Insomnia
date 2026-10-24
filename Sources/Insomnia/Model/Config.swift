@@ -72,6 +72,9 @@ struct Config: Codable, Equatable, Sendable {
     var hotspotSecurity: String?
     /// How the last failover join went; nil until one was tried.
     var hotspotLastJoin: HotspotJoinRecord?
+    /// The user said macOS's Ask to join hotspots is Automatically, for when
+    /// Insomnia can't read that setting itself.
+    var hotspotAutoJoinConfirmed: Bool = false
     /// Seconds of outage after which tmux panes are nudged.
     var nudgeThreshold: TimeInterval = 90
     /// tmux targets as `session:window.pane`. Only a pane carrying the
@@ -172,6 +175,7 @@ struct Config: Codable, Equatable, Sendable {
         hotspotSecurity = try c.decodeIfPresent(String.self, forKey: .hotspotSecurity)
         hotspotLastJoin = try? c.decodeIfPresent(HotspotJoinRecord.self, forKey: .hotspotLastJoin)
         advancedExpanded = try c.decodeIfPresent(Bool.self, forKey: .advancedExpanded) ?? d.advancedExpanded
+        hotspotAutoJoinConfirmed = try c.decodeIfPresent(Bool.self, forKey: .hotspotAutoJoinConfirmed) ?? d.hotspotAutoJoinConfirmed
         nudgeThreshold = try c.decodeIfPresent(TimeInterval.self, forKey: .nudgeThreshold) ?? d.nudgeThreshold
         tmuxTargets = try c.decodeIfPresent([String].self, forKey: .tmuxTargets) ?? d.tmuxTargets
         tmuxNudgePressesEnter = try c.decodeIfPresent(Bool.self, forKey: .tmuxNudgePressesEnter) ?? d.tmuxNudgePressesEnter

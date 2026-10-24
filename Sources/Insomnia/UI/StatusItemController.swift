@@ -23,6 +23,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     /// The menu while it is open; rebuilt in place when the state changes.
     private var openMenu: NSMenu?
+    /// The open menu's first row, kept across rebuilds so its eye animates.
+    private var headerItem: NSMenuItem?
     /// A throttled browser's icon was clicked in the open menu; its own
     /// menu opens once that one has closed.
     private var pendingThrottled: ThrottledBrowser?
@@ -152,6 +154,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     /// What the session part of the menu shows right now.
     var menuState: SessionMenu.State {
+        #if DEBUG
+        // `INSOMNIA_DEBUG_MENU=active`: draw the menu as if a session with no
+        // time limit were running, without starting one.
+        if ProcessInfo.processInfo.environment["INSOMNIA_DEBUG_MENU"] == "active" { return .openEnded }
+        #endif
         if model.phase == .starting { return .starting }
         if let s = manager.session { return s.openEnded ? .openEnded : .running(endsAt: s.endsAt, choice: s.choice) }
         if model.startFailure { return .failed }
@@ -167,10 +174,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.delegate = self
+        headerItem = nil
         populate(menu)
         openMenu = menu
         present(menu, from: button)
         openMenu = nil
+        headerItem = nil
         if let browser = pendingThrottled {
             pendingThrottled = nil
             showThrottledMenu(browser)
@@ -297,8 +306,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func menuItem(_ item: SessionMenu.Item) -> NSMenuItem {
         switch item {
         case let .header(title, value, eyeOpen):
-            let entry = NSMenuItem()
-            entry.view = MenuHeaderView(title: title, value: value, eyeOpen: eyeOpen, width: DurationGridView.width)
+            // One header per open menu: refreshing updates it, so its eye
+            // blinks in place instead of being replaced.
+            let entry = headerItem ?? NSMenuItem()
+            let view = (entry.view as? MenuHeaderView) ?? MenuHeaderView(width: DurationGridView.width)
+            view.update(title: title, value: value, eyeOpen: eyeOpen)
+            entry.view = view
+            headerItem = entry
             return entry
         case let .section(title):
             return .sectionHeader(title: title)
