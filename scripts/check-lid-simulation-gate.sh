@@ -19,7 +19,7 @@ SIM_SCRATCH=.build/lid-simulation
 # The watcher class (Insomnia.LidSimulation, a class: mangled ...13LidSimulationC),
 # its log lines and the build marker shown in the status menu and Settings.
 SYMBOL='13LidSimulationC'
-TEXTS=("lid SIMULATED" "Lid simulation build:")
+TEXTS=("lid SIMULATED" "Lid simulation build")
 # The flags of CI's "Build release" step; a warning in either build fails.
 RELEASE_FLAGS=(-c release -Xswiftc -warnings-as-errors)
 
