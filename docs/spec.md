@@ -59,10 +59,10 @@ Settings…                ⌘,
 Quit Insomnia            ⌘Q
 ```
 
-- **The first line** says whether Insomnia is keeping the Mac awake: "Inactive", "Starting…", "Active until 6:40 PM" (or "Sat 6:40 PM", or "Oct 30, 6:40 PM" when further out), or "Active, no time limit". It isn't clickable.
+- **The first line** says whether Insomnia is keeping the Mac awake: "Inactive", or, with a dot in the accent colour in front, "Starting…", "Active until 6:40 PM" (or "Sat 6:40 PM", or "Oct 30, 6:40 PM" when further out), or "Active, no time limit". It isn't clickable.
 - **The grid** is ∞ (no time limit) and the durations from Settings, 10m, 30m, 1h, 2h, 4h, 8h and 12h by default, four to a row. The menu stays open after a click; the first line and the highlight update in place.
   - With nothing running, clicking a cell starts that session.
-  - While a session runs, its cell is highlighted. Clicking another cell switches to it: the session then ends that long from now, or has no time limit for ∞. Clicking the highlighted cell ends the session.
+  - While a session runs, its cell is filled in the accent colour and its label counts down the time left ("1h" becomes "59m", "58m", …; ∞ stays ∞). Clicking another cell switches to it: the session then ends that long from now, or has no time limit for ∞. Clicking the running cell ends the session, and its label goes back to normal.
   - While starting, the grid is greyed out.
   - A running session with no matching cell (one a durations change has removed, say) gets an End session item under the grid.
 - **Start failed:** "Couldn't start. Try again." shows under the first line until the next successful start, or until the menu has been opened and closed once. The reason is in the log.

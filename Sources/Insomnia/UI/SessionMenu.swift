@@ -50,7 +50,9 @@ enum SessionMenu {
         case status(String, active: Bool)
         /// "Couldn't start. Try again.", drawn as a warning.
         case failure(String)
-        case grid(cells: [Cell], selected: Cell?, enabled: Bool)
+        /// `selectedTitle` replaces the highlighted cell's label: the time
+        /// left, counting down ("43m", "1h 59m"), or ∞.
+        case grid(cells: [Cell], selected: Cell?, selectedTitle: String?, enabled: Bool)
         /// Only when a session runs and no cell is highlighted, so there is
         /// always a way to end it.
         case endSession
@@ -82,18 +84,18 @@ enum SessionMenu {
         let cells = cells(durations)
         switch state {
         case .idle:
-            return [.status(inactiveTitle, active: false), .grid(cells: cells, selected: nil, enabled: true)]
+            return [.status(inactiveTitle, active: false), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true)]
         case .starting:
-            return [.status(startingTitle, active: true), .grid(cells: cells, selected: nil, enabled: false)]
+            return [.status(startingTitle, active: true), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: false)]
         case .failed:
-            return [.status(inactiveTitle, active: false), .failure(failureLine), .grid(cells: cells, selected: nil, enabled: true)]
+            return [.status(inactiveTitle, active: false), .failure(failureLine), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true)]
         case .openEnded:
-            return [.status("Active, no time limit", active: true), .grid(cells: cells, selected: .openEnded, enabled: true)]
+            return [.status("Active, no time limit", active: true), .grid(cells: cells, selected: .openEnded, selectedTitle: CountdownFormat.openEnded, enabled: true)]
         case let .running(endsAt, _):
             let selected = selected(state).flatMap { cells.contains($0) ? $0 : nil }
             var out: [Item] = [
                 .status("Active " + untilPhrase(endsAt: endsAt, now: now, calendar: calendar, locale: locale), active: true),
-                .grid(cells: cells, selected: selected, enabled: true),
+                .grid(cells: cells, selected: selected, selectedTitle: CountdownFormat.text(remaining: endsAt.timeIntervalSince(now)), enabled: true),
             ]
             if selected == nil { out.append(.endSession) }
             return out

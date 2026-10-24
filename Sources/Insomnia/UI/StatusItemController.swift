@@ -128,6 +128,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func observeManager() {
         withObservationTracking {
             _ = manager.session
+            // The running cell counts down in the open menu.
+            _ = manager.countdownText
             _ = manager.lastError
             _ = manager.commandWarning
             _ = manager.foreignSleepWarning
@@ -280,19 +282,28 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         case let .status(text, active):
             let entry = NSMenuItem(title: text, action: nil, keyEquivalent: "")
             entry.isEnabled = false
-            entry.attributedTitle = NSAttributedString(string: text, attributes: [
+            let title = NSMutableAttributedString()
+            if active {
+                // A dot in the accent colour: something is running.
+                title.append(NSAttributedString(string: "\u{25CF} ", attributes: [
+                    .font: NSFont.menuFont(ofSize: 0),
+                    .foregroundColor: NSColor.controlAccentColor,
+                ]))
+            }
+            title.append(NSAttributedString(string: text, attributes: [
                 .font: NSFont.menuFont(ofSize: 0).bold,
                 .foregroundColor: active ? NSColor.labelColor : NSColor.secondaryLabelColor,
-            ])
+            ]))
+            entry.attributedTitle = title
             return entry
         case let .failure(text):
             let entry = NSMenuItem(title: text, action: nil, keyEquivalent: "")
             entry.isEnabled = false
             entry.attributedTitle = NSAttributedString(string: text, attributes: [.font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize), .foregroundColor: NSColor.systemOrange])
             return entry
-        case let .grid(cells, selected, enabled):
+        case let .grid(cells, selected, selectedTitle, enabled):
             let entry = NSMenuItem()
-            entry.view = DurationGridView(cells: cells, selected: selected, enabled: enabled) { [weak self] cell in
+            entry.view = DurationGridView(cells: cells, selected: selected, selectedTitle: selectedTitle, enabled: enabled) { [weak self] cell in
                 self?.gridTapped(cell)
             }
             return entry

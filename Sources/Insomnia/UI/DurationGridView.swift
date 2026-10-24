@@ -5,14 +5,14 @@ import AppKit
 @MainActor
 final class DurationGridView: NSView {
     static let columns = 4
-    static let cellSize = NSSize(width: 52, height: 28)
+    static let cellSize = NSSize(width: 60, height: 28)
     static let gap: CGFloat = 6
     static let inset: CGFloat = 14
 
     private let onTap: (SessionMenu.Cell) -> Void
     private var buttons: [(NSButton, SessionMenu.Cell)] = []
 
-    init(cells: [SessionMenu.Cell], selected: SessionMenu.Cell?, enabled: Bool, onTap: @escaping (SessionMenu.Cell) -> Void) {
+    init(cells: [SessionMenu.Cell], selected: SessionMenu.Cell?, selectedTitle: String? = nil, enabled: Bool, onTap: @escaping (SessionMenu.Cell) -> Void) {
         self.onTap = onTap
         let rows = max(1, (cells.count + Self.columns - 1) / Self.columns)
         let width = Self.inset * 2 + CGFloat(Self.columns) * Self.cellSize.width + CGFloat(Self.columns - 1) * Self.gap
@@ -37,14 +37,17 @@ final class DurationGridView: NSView {
                 height: Self.cellSize.height
             )
             if cell == selected {
+                // The running session's cell: the accent colour, counting down.
                 button.bezelColor = .controlAccentColor
                 let centered = NSMutableParagraphStyle()
                 centered.alignment = .center
-                button.attributedTitle = NSAttributedString(string: cell.title, attributes: [
-                    .font: button.font ?? .systemFont(ofSize: 12),
+                let title = selectedTitle ?? cell.title
+                button.attributedTitle = NSAttributedString(string: title, attributes: [
+                    .font: NSFont.monospacedDigitSystemFont(ofSize: cell == .openEnded ? 15 : 12, weight: .bold),
                     .foregroundColor: NSColor.white,
                     .paragraphStyle: centered,
                 ])
+                button.setAccessibilityLabel("\(cell.accessibilityTitle), running, \(title == CountdownFormat.openEnded ? "no time limit" : "\(title) left"). Click to end")
             }
             addSubview(button)
             buttons.append((button, cell))

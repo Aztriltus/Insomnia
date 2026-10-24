@@ -45,7 +45,7 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 **Replaced:** a menu of templates with a custom-time field and Save as template (2026-10-23) → a grid with no custom field (2026-10-24) · a two-unit countdown in the menu bar (2026-10-23) → the eye alone (2026-10-24).
 
 <details>
-<summary>11 decisions</summary>
+<summary>13 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
@@ -57,6 +57,8 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 | 2026-10-24 | **Grid cells toggle: clicking one starts or switches to it, and it's highlighted; clicking the highlighted cell ends the session. No separate End button.** | Chosen from two options. | Clicking the eye starts ∞ at once, with a separate End session item. |
 | 2026-10-24 | **The lid, watts, battery and Wi-Fi line is left out of the menu.** | "Don't think we need the long line in the menu." | Keeping it. |
 | 2026-10-24 | **Throttled browsers show as a "Throttled" heading over their icons, with no labels; clicking an icon offers Relaunch unthrottled or Advanced settings.** | Owner's request. | A warning line plus one "Relaunch … unthrottled" item per browser. |
+| 2026-10-24 | **The running grid cell is filled in the accent colour and counts down the time left; clicking it ends the session and its label goes back to normal.** | "Show which grid item was clicked, and modify that grid item label so it counts down." | A highlight with a fixed label. |
+| 2026-10-24 | **A dot in the accent colour goes in front of the Active line.** | Owner's request. | Text alone. |
 | 2026-10-24 | **The menu bar shows the eye alone and never gets wider; no countdown.** | "The menu should stay as a single icon. Shouldn't get wider at all." | A two-unit countdown next to the eye. |
 | 2026-10-24 | **The menu stays open after a grid cell is clicked; the first line and highlight update in place.** | Owner's request. | Closing the menu on each choice. |
 | 2026-10-24 | **The menu leaves out status and diagnostic lines (journal state, paused-app counts, raw errors) and shows only what needs attention, in plain words.** | "Should omit any slop labels in the dropdown menu." | "Sleep held per journal — not verified live", "3 apps frozen · last gap", raw error text. |
