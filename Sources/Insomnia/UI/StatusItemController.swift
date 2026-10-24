@@ -15,6 +15,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// Opens the settings window. Injected because the window is owned by the
     /// app delegate, which outlives any one status item.
     private let showSettings: () -> Void
+    /// First-launch setup; while it's needed the menu offers it in place of
+    /// the grid. nil in tests.
+    private let setup: AppSetup?
+    private let showSetup: () -> Void
     /// Asks before a browser is quit for a relaunch; true means go ahead.
     /// Injected so tests never see the NSAlert.
     private let confirmRelaunch: @MainActor (String) -> Bool
@@ -36,6 +40,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     init(
         manager: SessionManager,
         status: any StatusSource,
+        setup: AppSetup? = nil,
+        showSetup: @escaping () -> Void = {},
         showSettings: @escaping () -> Void,
         confirmRelaunch: (@MainActor (String) -> Bool)? = nil,
         clock: @escaping @Sendable () -> Date = { Date() }
@@ -43,6 +49,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         self.manager = manager
         self.status = status
         self.showSettings = showSettings
+        self.setup = setup
+        self.showSetup = showSetup
         self.confirmRelaunch = confirmRelaunch ?? Self.askBeforeRelaunch
         self.clock = clock
         Self.seedPreferredPositionIfNeeded()
@@ -99,7 +107,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func updateIcon() {
         guard let button = statusItem.button else { return }
         let open = manager.isActive || model.phase == .starting
-        let attention = model.needsAttention || model.startFailure
+        let attention = model.needsAttention || model.startFailure || setupNeeded
         button.image = StatusIcon.image(open: open, attention: attention)
         var label = "Insomnia"
         if model.phase == .starting {
@@ -122,6 +130,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             _ = manager.commandWarning
             _ = manager.foreignSleepWarning
             _ = manager.outputsWaitingForRestore
+            _ = setup?.step
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
@@ -151,6 +160,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     // MARK: Menu
+
+    private var setupNeeded: Bool { setup?.needed ?? false }
 
     /// What the session part of the menu shows right now.
     var menuState: SessionMenu.State {
@@ -198,6 +209,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         // The header block: the first row, a refused start, then warnings.
         for item in session.prefix(while: { if case .section = $0 { return false } else { return true } }) {
             menu.addItem(menuItem(item))
+        }
+        if setupNeeded {
+            let finish = NSMenuItem(title: "Finish Setup\u{2026}", action: #selector(menuShowSetup), keyEquivalent: "")
+            finish.target = self
+            menu.addItem(finish)
         }
         for line in lines {
             switch line.kind {
@@ -326,7 +342,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             return entry
         case let .grid(cells, selected, selectedTitle, enabled):
             let entry = NSMenuItem()
-            entry.view = DurationGridView(cells: cells, selected: selected, selectedTitle: selectedTitle, enabled: enabled) { [weak self] cell in
+            entry.view = DurationGridView(cells: cells, selected: selected, selectedTitle: selectedTitle, enabled: enabled && !setupNeeded) { [weak self] cell in
                 self?.gridTapped(cell)
             }
             return entry
@@ -372,6 +388,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     /// A grid cell was clicked (`SessionMenu.action`). The menu stays open.
     func gridTapped(_ cell: SessionMenu.Cell) {
+        if setupNeeded {
+            openMenu?.cancelTracking()
+            showSetup()
+            return
+        }
         switch SessionMenu.action(for: cell, in: menuState) {
         case let .start(.duration(d)): start(.timed(d))
         case .start(.openEnded): start(.openEnded)
@@ -478,5 +499,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func menuOpenSettings() {
         showSettings()
+    }
+
+    @objc private func menuShowSetup() {
+        showSetup()
     }
 }

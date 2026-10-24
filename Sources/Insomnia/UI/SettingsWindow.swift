@@ -12,10 +12,16 @@ import SwiftUI
 @MainActor
 final class SettingsWindow {
     private var window: NSWindow?
+    private let title: String
     private let content: () -> AnyView
 
-    init(content: @escaping () -> AnyView) {
+    init(title: String = "Insomnia Settings", content: @escaping () -> AnyView) {
+        self.title = title
         self.content = content
+    }
+
+    func close() {
+        window?.close()
     }
 
     /// Bring the window up, creating it the first time. An accessory app has
@@ -33,7 +39,7 @@ final class SettingsWindow {
     private func make() -> NSWindow {
         let host = NSHostingController(rootView: content())
         let window = NSWindow(contentViewController: host)
-        window.title = "Insomnia Settings"
+        window.title = title
         window.styleMask = [.titled, .closable, .miniaturizable]
         // Closing settings must not deallocate the window: the status item
         // keeps a reference and reopens the same one.

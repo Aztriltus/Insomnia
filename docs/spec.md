@@ -112,7 +112,7 @@ One window. The top level holds:
 | Coding agents | Type "continue" into tmux panes after | 10–900 s | 90 s |
 | | Press Return after typing | on / off | off |
 | | tmux panes | list | empty |
-| About | Show settings file in Finder | | |
+| About | Show settings file in Finder, Uninstall Insomnia… | | |
 
 The end floor always stays below the Low Power Mode floor; moving one into the other pushes it along.
 
@@ -191,15 +191,24 @@ After a set time offline (90 seconds by default), Insomnia can type `continue` i
 
 ## 10. Install and privileges
 
-- macOS 26 or later on Apple Silicon. Installed by a script, not the App Store; releases come as a stable channel and daily nightlies.
-- The installer asks for your password once and installs the app in `~/Applications`, the recovery agent, and a sudoers rule that lets your account run exactly these four commands without a password:
+- macOS 26 or later on Apple Silicon. Not on the App Store.
+- **Install:** the DMG holds Insomnia and a shortcut to Applications, over a background that says "Drag Insomnia to Applications" with an arrow, and "Then open it from Applications."
+- **First launch:** a small window with the eye asks for one thing at a time, each with one button:
+  - Opened from the disk image: "Move to Applications" copies it there (an older copy goes to the Trash, another running copy is asked to quit), opens the copy and quits.
+  - "Set up Insomnia": Set Up… shows macOS's password dialog once, then writes the rule below. Cancelling changes nothing.
+  - "Insomnia is ready": Done closes the window and opens the menu.
+  - Until setup is done, the menu shows Finish Setup… under the first line, the grid is greyed out, and the eye has the attention dot. Clicking a cell opens the setup window.
+  - Nothing to do (the rule already works): no window.
+- The rule lets your account run exactly these four commands without a password:
   - `/usr/bin/pmset -a disablesleep 1`
   - `/usr/bin/pmset -a disablesleep 0`
   - `/usr/bin/pmset -b lowpowermode 1`
   - `/usr/bin/pmset -b lowpowermode 0`
 - Any program running as you can use that rule too.
-- The uninstaller undoes any open session first, then removes the app, the agent and the rule (and, with `--purge`, settings and logs).
-- Distributed as a DMG with an Install command. Updates arrive over the air with Sparkle from the fork’s GitHub Releases: checked once a day and from Settings, signed with an EdDSA key, and installed in place.
+- The recovery agent is installed the first time a session starts, pinned to the app wherever it is.
+- **Uninstall:** Settings > Advanced > Uninstall Insomnia… asks first, ends the session, then asks for your password and removes the rule, the agent and the login item, moves the app to the Trash and quits. Settings and logs stay. If the session can't be fully undone it says so and removes nothing.
+- `scripts/install.sh` and `scripts/uninstall.sh` still install from source (into `~/Applications`) and remove it (with `--purge`, settings and logs too).
+- Updates arrive over the air with Sparkle from the fork’s GitHub Releases: checked once a day and from Settings, signed with an EdDSA key, and installed in place.
 
 ## 11. Privacy and data
 

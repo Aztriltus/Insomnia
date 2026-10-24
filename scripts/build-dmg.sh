@@ -1,10 +1,12 @@
 #!/bin/bash
 # Builds dist/Insomnia-<version>.dmg for handing to other people.
 #
-# The disk image holds what the release zip holds (the app, install.sh and
-# uninstall.sh) plus two double-clickable wrappers and a Read Me. Insomnia
-# can't be installed by dragging it to Applications: install.sh writes the
-# sudoers rule for its four pmset commands and loads the recovery agent.
+# The disk image holds Insomnia.app and a shortcut to Applications, over a
+# background asking the user to drag one onto the other
+# (scripts/generate-dmg-background.swift). The app sets itself up the first
+# time it opens (AppSetup). The window layout is written by dmgbuild,
+# pinned below and installed into .build/dmgbuild, which writes Finder's
+# layout file directly, so no Finder scripting is needed (CI has none).
 #
 # Signing: with a "Developer ID Application" identity in the keychain (or
 # named by INSOMNIA_SIGN_IDENTITY), the app is signed with the hardened
@@ -18,8 +20,7 @@
 #     --apple-id you@example.com --team-id TEAMID
 #
 # Without an identity the build is ad-hoc signed and not notarized, and
-# macOS blocks the first run of the installer and of the app until the user
-# allows each one; the Read Me says how.
+# macOS blocks the app's first launch until the user allows it.
 #
 #   scripts/build-dmg.sh            build the app, then the disk image
 set -euo pipefail
@@ -31,6 +32,8 @@ stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 
 identity="${INSOMNIA_SIGN_IDENTITY:-$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -n 1)}"
+# "-" forces an ad-hoc, unnotarized build, for checking the layout quickly.
+[[ "$identity" == "-" ]] && identity=""
 profile="${INSOMNIA_NOTARY_PROFILE:-insomnia-notary}"
 if [[ -n "${INSOMNIA_NOTARY_KEY:-}" ]]; then
   notary=(--key "$INSOMNIA_NOTARY_KEY" --key-id "${INSOMNIA_NOTARY_KEY_ID:?}" --issuer "${INSOMNIA_NOTARY_ISSUER:?}")
@@ -57,53 +60,46 @@ if [[ -n "$identity" ]]; then
   notarize "$stage/app.zip" "$stage/build/Insomnia.app"
 fi
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$stage/build/Insomnia.app/Contents/Info.plist")"
-volume="$stage/Insomnia"
-mkdir -p "$volume" "$dist"
+mkdir -p "$dist"
 
-/usr/bin/ditto "$stage/build/Insomnia.app" "$volume/Insomnia.app"
-cp "$here/install.sh" "$here/uninstall.sh" "$volume/"
+# The background, drawn at 1x and 2x and combined so Retina screens get the sharp one.
+swift "$here/generate-dmg-background.swift" "$stage"
+tiffutil -cathidpicheck "$stage/background.png" "$stage/background@2x.png" -out "$stage/background.tiff" 2>/dev/null
 
-cat > "$volume/Install Insomnia.command" <<'EOF'
-#!/bin/bash
-# Installs the Insomnia.app beside this file. Asks for your password once,
-# for the sudoers rule that lets Insomnia turn sleep off and on.
-cd "$(dirname "$0")" || exit 1
-./install.sh --app ./Insomnia.app --allow-unverified-origin && open "$HOME/Applications/Insomnia.app"
-EOF
-
-cat > "$volume/Uninstall Insomnia.command" <<'EOF'
-#!/bin/bash
-# Removes Insomnia, its recovery agent and its sudoers rule. Add --purge to
-# also remove its settings and logs.
-cd "$(dirname "$0")" || exit 1
-./uninstall.sh "$@"
-EOF
-chmod +x "$volume/Install Insomnia.command" "$volume/Uninstall Insomnia.command" "$volume/install.sh" "$volume/uninstall.sh"
-
-cat > "$volume/Read Me.txt" <<EOF
-Insomnia $version
-
-Keeps your Mac awake, lid open or closed, for as long as you choose.
-Needs macOS 26 or later on an Apple Silicon Mac.
-
-To install
-1. Double-click "Install Insomnia". If macOS says it can't open it, open
-   System Settings > Privacy & Security, click Open Anyway, then
-   double-click it again.
-2. Enter your Mac password when Terminal asks. It's used once, to let
-   Insomnia turn sleep off and on.
-3. Insomnia opens as an eye in the menu bar. It updates itself from then
-   on: Check for updates at the top of Settings, or automatically.
-
-For hotspot backup, set System Settings > Wi-Fi > Ask to join hotspots to
-Automatically.
-
-To uninstall, double-click "Uninstall Insomnia".
+dmgbuild_env="$root/.build/dmgbuild"
+if [[ ! -x "$dmgbuild_env/bin/dmgbuild" ]]; then
+  python3 -m venv "$dmgbuild_env"
+  "$dmgbuild_env/bin/pip" install --quiet --disable-pip-version-check "dmgbuild==1.6.7"
+fi
+cat > "$stage/layout.py" <<'EOF'
+# dmgbuild settings: the app on the left, Applications on the right, at the
+# centres scripts/generate-dmg-background.swift draws around.
+app = defines["app"]
+files = [app]
+symlinks = {"Applications": "/Applications"}
+icon = defines["icon"]
+background = defines["background"]
+format = "UDZO"
+filesystem = "HFS+"
+# The height includes the 32-point title bar above the 400-point background.
+window_rect = ((200, 120), (640, 432))
+icon_size = 128
+text_size = 13
+icon_locations = {"Insomnia.app": (180, 210), "Applications": (460, 210)}
+hide_extensions = ["Insomnia.app"]
+show_status_bar = False
+show_tab_view = False
+show_toolbar = False
+show_pathbar = False
+show_sidebar = False
+default_view = "icon-view"
 EOF
 
 out="$dist/Insomnia-$version.dmg"
 rm -f "$out"
-hdiutil create -quiet -volname "Insomnia $version" -srcfolder "$volume" -fs HFS+ -format UDZO "$out"
+"$dmgbuild_env/bin/dmgbuild" -s "$stage/layout.py" \
+  -D app="$stage/build/Insomnia.app" -D icon="$root/Resources/AppIcon.icns" -D background="$stage/background.tiff" \
+  "Insomnia $version" "$out" >/dev/null
 if [[ -n "$identity" ]]; then
   codesign --force --timestamp --sign "$identity" "$out"
   notarize "$out" "$out"

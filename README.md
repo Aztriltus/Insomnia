@@ -29,16 +29,15 @@ A simplified fork of [krishhgg/Insomnia](https://github.com/krishhgg/Insomnia): 
 Needs macOS 26 or later on an Apple Silicon Mac.
 
 1. Download the DMG from the [latest release](https://github.com/Aztriltus/Insomnia/releases/latest) and open it.
-2. Double-click **Install Insomnia** and enter your Mac password when Terminal asks. It's used once, to let Insomnia turn sleep off and on.
-3. Insomnia opens as an eye in the menu bar.
+2. Drag Insomnia to Applications, then open it from there.
+3. Click **Set Up…** and enter your Mac password. It's asked once, to let Insomnia turn sleep off and on.
 
-Insomnia updates itself: it checks once a day, and **Check for updates** at the top of Settings checks now. To uninstall, double-click **Uninstall Insomnia** in the DMG.
+Insomnia lives in the menu bar as an eye. It updates itself: it checks once a day, and **Check for updates** at the top of Settings checks now. To uninstall, use **Uninstall Insomnia…** under Settings > Advanced.
 
 <details>
-<summary><strong>What the installer changes on your Mac</strong></summary>
+<summary><strong>What setup changes on your Mac</strong></summary>
 
-- The app, at `~/Applications/Insomnia.app`.
-- A **recovery agent**, a `launchd` job that runs every minute. If the app is gone when a session should have ended, it undoes the session's changes. It only runs an app signed by the same developer.
+- A **recovery agent**, a `launchd` job that runs every minute, installed when your first session starts. If the app is gone when a session should have ended, it undoes the session's changes. It only runs an app signed by the same developer.
 - A **sudoers rule** at `/etc/sudoers.d/insomnia` that lets your user account run exactly these four commands without a password:
 
 ```text

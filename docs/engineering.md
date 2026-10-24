@@ -129,7 +129,7 @@ App bundle:
 ./scripts/build-app.sh --output build
 ```
 
-Disk image to hand to other people (`dist/Insomnia-<version>.dmg` and its `.sha256`): the app, `install.sh`, `uninstall.sh`, "Install Insomnia.command", "Uninstall Insomnia.command" and a Read Me. With a Developer ID Application identity in the keychain it signs with the hardened runtime and notarizes and staples both the app and the DMG; without one it falls back to ad-hoc:
+Disk image to hand to other people (`dist/Insomnia-<version>.dmg` and its `.sha256`): the app and an Applications symlink, laid out by `dmgbuild` (pinned to 1.6.7 and installed into `.build/dmgbuild` on first use) over a background drawn at build time by `scripts/generate-dmg-background.swift` (1x and 2x, combined into a TIFF). dmgbuild writes Finder's `.DS_Store` itself, so no Finder scripting is needed and CI can build it. The window is 640×432: the 400-point background plus the title bar. Finder remembers a window size per volume name, so on a Mac that opened an older image with the same name the window can open larger. With a Developer ID Application identity in the keychain it signs with the hardened runtime and notarizes and staples both the app and the DMG; without one it falls back to ad-hoc. `INSOMNIA_SIGN_IDENTITY=-` forces ad-hoc, to check the layout quickly:
 
 ```bash
 ./scripts/build-dmg.sh
@@ -163,6 +163,8 @@ Signing keys, one-time:
 Testing:
 
 - `InsomniaTests` has 22 test files, about 515 tests, and runs in under a minute. On 2026-10-24 it was cut from about 1,250 tests and 20 minutes down to the essentials: the session engine, recovery and reconcile, sleep guard, lid actions and freezing, floors, failover, config, the menu and the redesign's pure logic, plus 15 core recovery-script cases and the 2 recovery-agent signature checks. The removed tests are in git history before that date.
+- First-launch setup (`System/AppSetup.swift`, `UI/SetupView.swift`): the window opens when the app runs from a disk image (path under `/Volumes/`, translocated, or a read-only volume) or `sudo -k -n -l` refuses any of the four `pmset` commands (`-l` only lists; `-k` ignores a recently typed password). The rule is written with `osascript` `do shell script … with administrator privileges`: `visudo -cf` on a staged copy, then `install -m 0440 -o root -g wheel`. `SudoersRule` holds the same text install.sh writes; `SetupTests` checks they match. Builds run outside an app bundle skip setup. Uninstall (`AppUninstall`) requires `end(reason: .quit)` to return `.restored`, since it removes the agent that would retry anything left.
+- To see the setup window, run a debug build with `INSOMNIA_DEBUG_SETUP=move`, `=permission` or `=done`; its buttons do nothing.
 - To see the menu without a mouse, run a debug build with `INSOMNIA_DEBUG_MENU=open` (opens the menu 6 seconds after launch), `=throttled` (also clicks the first throttled browser's icon) or `=settings` (opens Settings instead), with `INSOMNIA_HOME` set to a scratch folder, and capture it with `screencapture`. Don't click grid cells in such a build: a session would load the real recovery agent's launchd label.
 - The C target `InsomniaTestHome` points `INSOMNIA_HOME` at a temporary folder when the bundle loads, and aborts if it can't.
 - Fakes live in `TestSupport.swift`: `FakeSleepGuard`, `FakeBackstop`, `FakeProcessControl`, `FakeAudioControl`, `FakeDisplayDimmer` and `FakeClock`.

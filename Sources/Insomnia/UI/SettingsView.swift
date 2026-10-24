@@ -33,6 +33,10 @@ struct SettingsView: View {
     @State private var showingHotspotSheet = false
     @State private var showingAddDuration = false
     @State private var installed: [InstalledApp] = []
+    /// Uninstall: asking first, running, and why it stopped.
+    @State private var confirmingUninstall = false
+    @State private var uninstalling = false
+    @State private var uninstallMessage: String?
     /// macOS's "Ask to join hotspots", read on appear and whenever the app
     /// becomes active (the user may have just changed it).
     @State private var autoJoin = HotspotAutoJoin.read()
@@ -474,11 +478,35 @@ struct SettingsView: View {
             Button("Show settings file in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([manager.paths.configFile])
             }
+            Button("Uninstall Insomnia\u{2026}") { confirmingUninstall = true }
+                .disabled(uninstalling)
+                .alert("Uninstall Insomnia?", isPresented: $confirmingUninstall) {
+                    Button("Uninstall", role: .destructive) { uninstall() }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Ends the session and removes Insomnia and its permission to turn sleep off and on. Your settings stay.")
+                }
+            if let uninstallMessage {
+                Text(uninstallMessage).font(.caption).foregroundStyle(.red)
+            }
             if LidSimulationBuild.isCompiledIn {
                 Text(LidSimulationBuild.marker)
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
+        }
+    }
+
+    private func uninstall() {
+        uninstalling = true
+        uninstallMessage = nil
+        Task {
+            switch await AppUninstall.run(manager: manager, loginItem: loginItem) {
+            case .busy: uninstallMessage = "Insomnia is still undoing the session. Try again in a minute."
+            case .failed: uninstallMessage = "Couldn\u{2019}t uninstall. Try again."
+            case .cancelled, .quitting: break
+            }
+            uninstalling = false
         }
     }
 

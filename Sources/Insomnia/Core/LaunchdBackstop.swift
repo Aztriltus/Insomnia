@@ -135,6 +135,15 @@ struct LaunchdBackstop: BackstopScheduling {
         try publish(candidate)
     }
 
+    /// Unloads the agent and deletes its plist, for Uninstall. Best effort:
+    /// an agent left behind only logs that the bundle it pins is gone.
+    func remove() async {
+        _ = try? await run(Self.launchctl, ["bootout", "gui/\(uid)/\(label)"])
+        try? FileManager.default.removeItem(at: plistURL)
+        sweepCandidates()
+        _ = rmdir(stagingDirectory.path)
+    }
+
     // MARK: Plist
 
     /// Pure builder, testable without launchd. Must produce exactly what

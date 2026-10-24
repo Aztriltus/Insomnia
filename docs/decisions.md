@@ -130,16 +130,16 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 
 ## Distribution
 
-**Where it stands:** a DMG signed with the owner’s Developer ID and notarized, published to the fork’s GitHub Releases by CI when a merge to main changes the version; installed copies update themselves with Sparkle. Installing runs the bundled installer. TestFlight isn't possible for this app.
+**Where it stands:** a DMG signed with the owner’s Developer ID and notarized, published to the fork’s GitHub Releases by CI when a merge to main changes the version; installed copies update themselves with Sparkle. Installing is dragging the app to Applications; the app sets itself up on first launch. TestFlight isn't possible for this app.
 
-**Replaced:** releasing by hand with `release.sh` → CI on a version bump (2026-10-24) · upstream's manual-only release workflow → the fork's own (2026-10-24).
+**Replaced:** releasing by hand with `release.sh` → CI on a version bump (2026-10-24) · upstream's manual-only release workflow → the fork's own (2026-10-24) · installer in the DMG → drag to Applications with setup in the app (2026-10-24).
 
 <details>
-<summary>10 decisions</summary>
+<summary>11 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
-| 2026-10-24 | **Distribute as a DMG holding the app, the installer scripts, double-clickable Install and Uninstall commands, and a Read Me.** | "Can we build a dmg so I can distribute?" Insomnia needs its installer (sudoers rule, recovery agent), so drag-to-Applications can't work. | A drag-to-Applications DMG. |
+| 2026-10-24 | **Distribute as a DMG holding the app, the installer scripts, double-clickable Install and Uninstall commands, and a Read Me.** **Superseded 2026-10-24** | "Can we build a dmg so I can distribute?" Insomnia needs its installer (sudoers rule, recovery agent), so drag-to-Applications can't work. | A drag-to-Applications DMG. |
 | 2026-10-24 | **Ship under the fork’s own bundle ID, `com.zacheryng.insomnia`; the scripts still quit an app with upstream’s ID.** | Builds are signed with the owner’s Developer ID. | Keeping `com.kgarg.insomnia`. |
 | 2026-10-24 | **Developer ID signing with the hardened runtime, and notarization of the app and the DMG, when the identity and notary profile exist; ad-hoc otherwise.** | "Yes set it up." Removes the Gatekeeper prompts, and a team-pinned signature survives updates. | Ad-hoc only. |
 | 2026-10-24 | **Over-the-air updates with Sparkle, from an appcast on the fork’s GitHub Releases (`releases/latest/download/appcast.xml`), released with `scripts/release.sh`.** | "So they can just check for updates and get it when I update it." | GitHub Pages for the appcast; upstream’s report-only update check. |
@@ -148,6 +148,7 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 | 2026-10-24 | **Confirmed on the device: Check for updates in a signed 0.1.0 installed v0.2.0 in place, and the recovery agent still accepted the updated app.** | Owner tested the first over-the-air update. | — |
 | 2026-10-24 | **CI builds and tests every pull request; a push to main publishes a signed, notarized release when the version in Info.plist has no release yet.** The signing keys are secrets of a `release` environment only main can use. | "We work off branches, test and merge and expect it to release something." Releasing on version change, not every merge, so users aren't asked to update after each small merge. | Releasing on every merge; keeping releases local with `release.sh`. |
 | 2026-10-24 | **Upstream’s merge gate, Mac mini runner, nightlies and lint jobs are removed from the fork.** | They need krishhgg/Insomnia’s review bot, labels and hardware; the Mac mini job would wait 24 hours on every push. | Keeping them. |
+| 2026-10-24 | **The DMG is the app and an Applications shortcut over a drawn "drag to Applications" background. The app sets itself up on first launch: it moves itself out of the disk image, then writes the sudoers rule behind macOS's password dialog, one explicit button per step. Uninstall moves into Settings > Advanced.** | "Add an applications folder and remove all other junk in the dmg"; "I don't think anyone knows or reads before hand", so the needed action has to be explicit in the app. | Keeping the installer in the DMG; a Read Me. |
 | 2026-10-24 | **No TestFlight.** | TestFlight only carries App Store builds, which must be sandboxed; Insomnia runs `sudo pmset`, pauses other apps' processes, uses private display APIs and installs a launchd agent. | Reworking the app for the App Store. |
 
 </details>

@@ -394,7 +394,7 @@ fi
 step "Writing $SUDOERS (requires your password once)"
 TMP_SUDOERS="$("$MKTEMP")"
 cat > "$TMP_SUDOERS" <<SUDO
-# Installed by Insomnia install.sh. Exactly four commands, nothing else.
+# Installed by Insomnia. Exactly four commands, nothing else.
 $USER ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 1
 $USER ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 0
 $USER ALL=(root) NOPASSWD: /usr/bin/pmset -b lowpowermode 1

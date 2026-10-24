@@ -19,7 +19,7 @@ macOS menu bar app for timed awake sessions on Apple Silicon MacBooks (Swift 6.2
 ## Ground rules
 
 - Never change sleep, power or process state outside an active session, and journal every change before making it. Recovery must be able to undo anything a session did.
-- The sudoers rule is exactly four `pmset` commands. Don't add commands, wildcards or another privileged path; README.md, docs/install.md, SECURITY.md and docs/spec.md list the same four.
+- The sudoers rule is exactly four `pmset` commands. Don't add commands, wildcards or another privileged path; README.md, docs/install.md, SECURITY.md, docs/spec.md and `SudoersRule` (System/AppSetup.swift, which writes it at first launch) list the same four.
 - Tests use fakes and a temporary `INSOMNIA_HOME`; no test may touch real power settings, Wi-Fi, Keychain or processes.
 - Put decisions in pure, testable types (formatters, parsers, matchers, planners) and keep UI thin. There is no UI test target, so UI behaviour is checked by hand and the PR says so.
 - Copy names what the user sees: no `SIGSTOP`, bundle IDs, Keychain service names or other internals in the app's UI.
