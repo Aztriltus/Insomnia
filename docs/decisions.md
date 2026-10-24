@@ -130,12 +130,12 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 
 ## Distribution
 
-**Where it stands:** a DMG signed with the owner’s Developer ID and notarized, published to the fork’s GitHub Releases by `scripts/release.sh`; installed copies update themselves with Sparkle. Installing runs the bundled installer. TestFlight isn't possible for this app.
+**Where it stands:** a DMG signed with the owner’s Developer ID and notarized, published to the fork’s GitHub Releases by CI when a merge to main changes the version; installed copies update themselves with Sparkle. Installing runs the bundled installer. TestFlight isn't possible for this app.
 
-**Replaced:** none.
+**Replaced:** releasing by hand with `release.sh` → CI on a version bump (2026-10-24) · upstream's manual-only release workflow → the fork's own (2026-10-24).
 
 <details>
-<summary>8 decisions</summary>
+<summary>10 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
@@ -144,8 +144,10 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 | 2026-10-24 | **Developer ID signing with the hardened runtime, and notarization of the app and the DMG, when the identity and notary profile exist; ad-hoc otherwise.** | "Yes set it up." Removes the Gatekeeper prompts, and a team-pinned signature survives updates. | Ad-hoc only. |
 | 2026-10-24 | **Over-the-air updates with Sparkle, from an appcast on the fork’s GitHub Releases (`releases/latest/download/appcast.xml`), released with `scripts/release.sh`.** | "So they can just check for updates and get it when I update it." | GitHub Pages for the appcast; upstream’s report-only update check. |
 | 2026-10-24 | **The installer trusts a bundle signed by team H37KGF95Y9 and accepted by Gatekeeper as notarized, without `--allow-unverified-origin`.** | Its old warning ("not notarized", "origin not verified") was wrong for signed builds. | Warning on every prebuilt bundle. |
-| 2026-10-24 | **Upstream’s release workflow is manual-only in the fork.** | A `v*` tag would otherwise publish an unsigned zip and collide with the release from `release.sh`. | Keeping tag and nightly triggers. |
+| 2026-10-24 | **Upstream’s release workflow is manual-only in the fork.** **Superseded 2026-10-24** | A `v*` tag would otherwise publish an unsigned zip and collide with the release from `release.sh`. | Keeping tag and nightly triggers. |
 | 2026-10-24 | **Confirmed on the device: Check for updates in a signed 0.1.0 installed v0.2.0 in place, and the recovery agent still accepted the updated app.** | Owner tested the first over-the-air update. | — |
+| 2026-10-24 | **CI builds and tests every pull request; a push to main publishes a signed, notarized release when the version in Info.plist has no release yet.** The signing keys are secrets of a `release` environment only main can use. | "We work off branches, test and merge and expect it to release something." Releasing on version change, not every merge, so users aren't asked to update after each small merge. | Releasing on every merge; keeping releases local with `release.sh`. |
+| 2026-10-24 | **Upstream’s merge gate, Mac mini runner, nightlies and lint jobs are removed from the fork.** | They need krishhgg/Insomnia’s review bot, labels and hardware; the Mac mini job would wait 24 hours on every push. | Keeping them. |
 | 2026-10-24 | **No TestFlight.** | TestFlight only carries App Store builds, which must be sandboxed; Insomnia runs `sudo pmset`, pauses other apps' processes, uses private display APIs and installs a launchd agent. | Reworking the app for the App Store. |
 
 </details>

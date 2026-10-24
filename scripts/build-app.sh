@@ -1,17 +1,17 @@
 #!/bin/bash
-# Build Insomnia and assemble an ad-hoc signed Insomnia.app. install.sh runs this for
-# source installs, and .github/workflows/release.yml runs it for the
-# downloadable package, so both produce the same bundle.
+# Build Insomnia and assemble Insomnia.app. install.sh runs this for source
+# installs, and build-dmg.sh runs it for releases, so both produce the same
+# bundle.
 #
 # Usage: scripts/build-app.sh --output DIR
 #   Writes DIR/Insomnia.app, replacing a bundle already at that path. DIR is
 #   created if needed. Prints the bundle path last.
 #
-# The signature is always ad-hoc (`codesign --sign -`): releases are ad-hoc
-# signed and not notarized (docs/releasing.md). It identifies only this build
-# (its cdhash), and macOS blocks the first launch of a downloaded copy until
-# the user allows it. The bundle has no nested code, so there is no --deep;
-# backstop.sh under Contents/Resources is sealed as a resource.
+# INSOMNIA_SIGN_IDENTITY signs it with a Developer ID (see "Sign" below);
+# otherwise it is ad-hoc signed, which identifies only this build (its
+# cdhash). INSOMNIA_BUILD_NUMBER, when set, replaces CFBundleVersion in the
+# bundle (release.sh sets it; Sparkle compares it). backstop.sh under
+# Contents/Resources is sealed as a resource.
 set -euo pipefail
 
 # Fixed tool paths: never taken from PATH. Tests patch these lines in a
@@ -24,6 +24,7 @@ MKDIR=/bin/mkdir
 CP=/bin/cp
 CHMOD=/bin/chmod
 DITTO=/usr/bin/ditto
+PLISTBUDDY=/usr/libexec/PlistBuddy
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -122,6 +123,9 @@ step "Assembling $APP"
 "$MKDIR" -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 "$CP" "$BIN" "$APP/Contents/MacOS/Insomnia"
 "$CP" "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+if [[ -n "${INSOMNIA_BUILD_NUMBER:-}" ]]; then
+  "$PLISTBUDDY" -c "Set :CFBundleVersion $INSOMNIA_BUILD_NUMBER" "$APP/Contents/Info.plist"
+fi
 "$CP" "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 # backstop.sh goes into the bundle before it is signed, so the signature's
 # resource seal covers it. The LaunchAgent install.sh writes verifies the

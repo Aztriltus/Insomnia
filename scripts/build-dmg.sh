@@ -9,7 +9,9 @@
 # Signing: with a "Developer ID Application" identity in the keychain (or
 # named by INSOMNIA_SIGN_IDENTITY), the app is signed with the hardened
 # runtime, notarized and stapled, and so is the disk image. The notary
-# credentials are a keychain profile, INSOMNIA_NOTARY_PROFILE (default
+# credentials are an App Store Connect API key when INSOMNIA_NOTARY_KEY (the
+# .p8 file), INSOMNIA_NOTARY_KEY_ID and INSOMNIA_NOTARY_ISSUER are set, as in
+# CI; otherwise a keychain profile, INSOMNIA_NOTARY_PROFILE (default
 # "insomnia-notary"), stored once with:
 #
 #   xcrun notarytool store-credentials insomnia-notary \
@@ -30,15 +32,22 @@ trap 'rm -rf "$stage"' EXIT
 
 identity="${INSOMNIA_SIGN_IDENTITY:-$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -n 1)}"
 profile="${INSOMNIA_NOTARY_PROFILE:-insomnia-notary}"
+if [[ -n "${INSOMNIA_NOTARY_KEY:-}" ]]; then
+  notary=(--key "$INSOMNIA_NOTARY_KEY" --key-id "${INSOMNIA_NOTARY_KEY_ID:?}" --issuer "${INSOMNIA_NOTARY_ISSUER:?}")
+  via="an App Store Connect API key"
+else
+  notary=(--keychain-profile "$profile")
+  via="the \"$profile\" keychain profile"
+fi
 if [[ -n "$identity" ]]; then
-  echo "Signing with $identity; notarizing with the \"$profile\" keychain profile"
+  echo "Signing with $identity; notarizing with $via"
 else
   echo "No Developer ID identity: ad-hoc signed, not notarized"
 fi
 
 # Submits $1 for notarization and staples the ticket to $2.
 notarize() {
-  xcrun notarytool submit "$1" --keychain-profile "$profile" --wait
+  xcrun notarytool submit "$1" "${notary[@]}" --wait
   xcrun stapler staple "$2"
 }
 

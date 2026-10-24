@@ -139,31 +139,26 @@ Disk image to hand to other people (`dist/Insomnia-<version>.dmg` and its `.sha2
 
 Installed copies check `https://github.com/Aztriltus/Insomnia/releases/latest/download/appcast.xml` once a day with Sparkle (`UI/AppUpdater.swift`, `SUFeedURL` and `SUPublicEDKey` in Info.plist), and Check for updates at the top of Settings checks now.
 
-One-time setup on the release Mac:
+Releasing is merging a version bump into main:
 
-1. A **Developer ID Application** certificate in the login keychain (developer.apple.com > Certificates; the account holder creates it).
-2. Notary credentials stored as a keychain profile, with an app-specific password from appleid.apple.com:
+1. In a pull request, run `./scripts/bump-version.sh 0.3.0` and commit `Resources/Info.plist`.
+2. Merge it. On every push to main, `.github/workflows/release.yml` checks whether GitHub has release `v<version>`; when it doesn't, it runs `swift test` and then `scripts/release.sh` with the signing keys from the `release` environment.
+3. `release.sh` builds the Developer ID signed, notarized DMG, writes and signs `appcast.xml`, and creates release `v<version>` at that commit with both files, marked Latest. The release notes are the `feat`, `fix`, `update`, `style` and `perf` commit subjects since the last release. The build number (`CFBundleVersion`, which Sparkle compares) is set in the bundle only: the commit count, or one more than the last release's when that is higher, so a squash merge can't make it go down. The one in the repo's Info.plist is not kept current.
 
-   ```bash
-   xcrun notarytool store-credentials insomnia-notary --apple-id <apple id> --team-id <team id>
-   ```
+Merges that don't change the version publish nothing. `release.sh` also runs from a Mac with the keys in the login keychain (clean tree, commit pushed); it does nothing for a version that's already released.
 
-3. The Sparkle EdDSA private key in the login keychain. It was made on 2026-10-24 with `.build/artifacts/sparkle/Sparkle/bin/generate_keys`; its public half is `SUPublicEDKey`. Losing the private key means installed copies can't verify updates any more: back it up with `generate_keys -x <file>`.
+It refuses to run without a Developer ID identity: Sparkle replaces the app in place, and the recovery agent keeps trusting it only when its pinned requirement names the team rather than an ad-hoc cdhash.
 
-Each release, from a clean tree on the branch to ship:
+Signing keys, one-time:
 
-```bash
-./scripts/release.sh 0.2.0 "What changed, in a sentence or two."
-```
-
-It sets the version and build number in Info.plist and commits that, builds the notarized DMG, writes and signs `appcast.xml`, pushes the branch, and creates GitHub release `v0.2.0` with both files, marked Latest. It refuses to run without a Developer ID identity: Sparkle replaces the app in place, and the recovery agent keeps trusting it only when its pinned requirement names the team rather than an ad-hoc cdhash.
+- **This Mac:** a **Developer ID Application** certificate in the login keychain (developer.apple.com > Certificates; the account holder creates it); notary credentials as the keychain profile `insomnia-notary` (`xcrun notarytool store-credentials insomnia-notary --apple-id <apple id> --team-id <team id>`); and the Sparkle EdDSA private key, made on 2026-10-24 with `.build/artifacts/sparkle/Sparkle/bin/generate_keys`, whose public half is `SUPublicEDKey`. Losing the private key means installed copies can't verify updates any more: back it up with `generate_keys -x <file>`.
+- **GitHub:** `./scripts/setup-release-secrets.sh <AuthKey.p8> <key ID> <issuer ID>` creates the `release` environment (deployments from main only) and sets its secrets: `DEVELOPER_ID_P12` and `DEVELOPER_ID_P12_PASSWORD` (the identity, exported from the keychain), `NOTARY_KEY`, `NOTARY_KEY_ID` and `NOTARY_ISSUER_ID` (an App Store Connect API key with Developer access, which CI notarizes with), and `SPARKLE_PRIVATE_KEY`. Re-run it when a key changes.
 
 - The first Developer ID build has to be installed with its installer, once, so the agent pins the team requirement. Updates after that need no reinstall.
 - `install.sh --app` installs a bundle signed by team `H37KGF95Y9` that Gatekeeper accepts as notarized without `--allow-unverified-origin` or its warning; anything else still needs the flag.
 - First signed, notarized build: 0.1.0, installed from the DMG on 2026-10-24. Apple took about 30 minutes for the team’s first submission.
 - First release: [v0.2.0](https://github.com/Aztriltus/Insomnia/releases/tag/v0.2.0), published with `release.sh` on 2026-10-24 (build 549).
 - An update ends a running session, like any quit.
-- Upstream's `release.yml` is manual-only in this fork, so a `v*` tag can't publish an unsigned zip over a release.
 
 Testing:
 
@@ -175,16 +170,9 @@ Testing:
 
 CI (`.github/workflows/`):
 
-- **`ci.yml`:**
-  - On macOS 26 and 27: a bash 3.2 syntax check, the merge-gate test, a release build with warnings as errors, the lid-simulation gate check, and `swift test` with a 50-minute watchdog.
-  - On Ubuntu: ShellCheck, actionlint and zizmor.
-- **`mac-mini.yml`:** a self-hosted macOS 27 VM; not required.
-- **`merge-gate.yml`:** upstream's PR gate, with Greptile, the `accepted` label, real-Mac evidence, config review and Codex review. It is written for krishhgg/Insomnia; decide whether the fork keeps it.
-- **`release.yml`:**
-  - Stable: a `v*` tag matching `CFBundleShortVersionString`, marked Latest.
-  - Nightly: daily at 07:17 UTC, tagged `nightly-<YYYYMMDD>-<sha12>`.
-  - Each release is a zip with the app, `install.sh`, `uninstall.sh` and `SHA256SUMS`.
-- **The update check and release URLs** point at `krishhgg/Insomnia` (`UI/ReleaseCheck.swift`).
+- **`ci.yml`:** on every pull request and push to main, on macOS 26: a bash 3.2 syntax check of `scripts/`, a release build with warnings as errors, the lid-simulation gate check, and `swift test`.
+- **`release.yml`:** on every push to main, publishes the version in Info.plist when it has no release yet (the runbook above).
+- Upstream's merge gate, Mac mini runner, nightlies, ShellCheck, actionlint and zizmor jobs were removed on 2026-10-24: they were built for krishhgg/Insomnia's reviewers and hardware.
 
 ## Code issues
 
