@@ -55,6 +55,7 @@ LAUNCHCTL=/bin/launchctl
 SUDO=/usr/bin/sudo
 PLUTIL=/usr/bin/plutil
 CODESIGN=/usr/bin/codesign
+SPCTL=/usr/sbin/spctl
 DITTO=/usr/bin/ditto
 CHMOD=/bin/chmod
 SYSCTL=/usr/sbin/sysctl
@@ -72,6 +73,8 @@ CALL_TIMEOUT_SECONDS=30
 
 # What a prebuilt bundle (--app) must be.
 BUNDLE_ID=com.zacheryng.insomnia
+# The Developer ID team that signs this fork's releases.
+TEAM_ID=H37KGF95Y9
 
 # The folder this script is in. build-app.sh and backstop.sh are taken from
 # there, and only when it is the scripts/ folder of a source checkout, with
@@ -346,14 +349,15 @@ if [[ -n "$PREBUILT" ]]; then
     exit 1
   fi
   # Origin. The checks above show the bundle is intact, not where it came
-  # from. A signature shows the bundle has not changed since it was signed,
-  # and anyone can sign a bundle with this identifier, so this script does
-  # not read who signed it. Releases are ad-hoc signed and not notarized
-  # (docs/releasing.md). What ties a zip to this repository's Release
-  # workflow is the checksum and the attestation, which only the user can
-  # check, so every prebuilt bundle needs --allow-unverified-origin, the flag
-  # that says they did.
-  if (( ALLOW_UNVERIFIED_ORIGIN )); then
+  # from. A bundle signed with this fork's Developer ID (team $TEAM_ID) and
+  # notarized, as Gatekeeper accepts it, has a known origin and installs
+  # without the flag. Anything else (an ad-hoc build, another team) can be
+  # signed by anyone with this identifier, so it needs
+  # --allow-unverified-origin, the flag that says the user checked it.
+  if "$CODESIGN" --verify --strict -R="anchor apple generic and certificate leaf[subject.OU] = \"$TEAM_ID\"" "$CHECKED_APP" >/dev/null 2>&1 \
+     && "$SPCTL" --assess --type execute "$CHECKED_APP" >/dev/null 2>&1; then
+    echo "Signed by this fork's Developer ID (team $TEAM_ID) and notarized."
+  elif (( ALLOW_UNVERIFIED_ORIGIN )); then
     echo "WARNING: the origin of Insomnia $PREBUILT_VERSION is not verified. Its signature shows the bundle is intact, not who made it."
     echo "--allow-unverified-origin: installing it anyway. Its backstop.sh will run as you at login and every 60 s."
     echo "Continue only if you checked the zip yourself with SHA256SUMS and 'gh attestation verify' (README, Install)."
