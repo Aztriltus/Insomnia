@@ -1126,7 +1126,7 @@ final class LidActionsTests: XCTestCase {
         XCTAssertFalse(h.audio.muted)
         XCTAssertEqual(try h.store.loadState()?.savedAudioOutputs.map(\.withoutSaveID), [Self.headsetSaved])
         let lines = StatusItemController.menuItems(manager: m, status: RecordingStatusSource()).map(\.title)
-        XCTAssertTrue(lines.contains("\u{26A0} USB Headset is still muted from a lid close; Insomnia restores it when it reconnects"), "\(lines)")
+        XCTAssertTrue(lines.contains("USB Headset is still muted"), "\(lines)")
         XCTAssertTrue(lines.contains("Stop waiting for USB Headset"), "\(lines)")
 
         // macOS keeps a device's mute, so the headset comes back muted.
@@ -1183,7 +1183,7 @@ final class LidActionsTests: XCTestCase {
         XCTAssertFalse(h.audio.muted, "the speakers are not touched")
         let post = try XCTUnwrap(h.notifier.posts.last)
         XCTAssertEqual(post.title, "Session ended")
-        XCTAssertEqual(post.body, "Insomnia quit. Sleep is back to normal. USB Headset was not connected, so it is still muted. Insomnia restores its volume when it reconnects while Insomnia is running, or at the next launch.")
+        XCTAssertEqual(post.body, "Insomnia quit. USB Headset is still muted until it reconnects.")
         XCTAssertFalse(h.notifier.posts.contains { $0.title == SessionManager.incompleteTitle })
         XCTAssertEqual(m.outputsWaitingForRestore.map(\.withoutSaveID), [Self.headsetSaved])
 
@@ -1996,12 +1996,14 @@ final class LidActionsTests: XCTestCase {
         XCTAssertFalse(m.isActive)
 
         XCTAssertEqual(h.clamshell.closed, false, "the lid is open for the new session")
-        await m.start(duration: 3600)
+        // Half a second over the hour, so the minute text next changes half
+        // a second in ("1h 1m" to "1h") and the real timer fires quickly.
+        await m.start(duration: 3600.5)
 
         XCTAssertTrue(m.isActive)
         XCTAssertTrue(m.countdownTimerArmed, "a session started with the lid open has no countdown timer")
         let before = m.countdownText
-        h.clock.advance(7)
+        h.clock.advance(1)
         let deadline = Date().addingTimeInterval(5)
         while m.countdownText == before, Date() < deadline {
             try await Task.sleep(for: .milliseconds(50))

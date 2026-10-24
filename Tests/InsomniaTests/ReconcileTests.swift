@@ -411,7 +411,7 @@ final class ReconcileTests: XCTestCase {
         // that resumes late would hide an end that came early.
         let restoredAt = try XCTUnwrap(real.guardFake.restoreCalledAt, "the end never restored sleep")
         XCTAssertGreaterThanOrEqual(restoredAt, endsAt, "the session ended before its deadline")
-        XCTAssertEqual(real.notifier.posts.last?.body, "Time is up. Sleep is back to normal.")
+        XCTAssertEqual(real.notifier.posts.last?.body, "Time\u{2019}s up.")
         XCTAssertFalse(m.isActive)
         XCTAssertNil(try real.store.loadSession())
         XCTAssertEqual(try real.store.loadState(), RuntimeState.clean)

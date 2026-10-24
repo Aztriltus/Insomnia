@@ -131,9 +131,9 @@ struct FloorRuleDriver {
                 guard manager.isActive, !Task.isCancelled else { return }
                 switch cause {
                 case .thermal:
-                    notifier.post(title: "Low Power Mode on", body: "Thermal state is serious. Low Power Mode is on until it cools down.")
+                    notifier.post(title: "Low Power Mode on", body: "Your Mac is hot.")
                 case .battery:
-                    notifier.post(title: "Low Power Mode on", body: "Battery at \(percent ?? 0)%, below the \(config.lowPowerFloor)% floor.")
+                    notifier.post(title: "Low Power Mode on", body: "Battery at \(percent ?? 0)%.")
                 case .lid:
                     Log.info("low power mode on (lid closed)")
                 }
@@ -145,7 +145,7 @@ struct FloorRuleDriver {
                     if cause == .lid {
                         Log.info("low power mode off (lid opened)")
                     } else {
-                        notifier.post(title: "Low Power Mode off", body: isCharging ? "Charger connected." : "Back above the floor.")
+                        notifier.post(title: "Low Power Mode off", body: isCharging ? "Charger connected." : "Battery recovered.")
                     }
                 }
             case let .endSession(reason):

@@ -179,6 +179,12 @@ final class AppServices {
         }
         net.onRecovered = { [weak self] gap in self?.status.lastGap = gap }
         net.onPasswordReport = { [weak self] report in self?.status.hotspotPasswordReport = report }
+        net.onJoinResult = { [weak manager] result, bssid in
+            manager?.updateConfig { c in
+                c.hotspotLastJoin = HotspotJoinRecord(result: result, at: Date())
+                c.hotspotBSSIDs = HotspotMatcher.recording(bssid, into: c.hotspotBSSIDs)
+            }
+        }
         network = net
         networkTask = Task { [weak self, weak net] in
             guard let self, let net else { return }
@@ -318,6 +324,11 @@ final class AppServices {
     /// about the hotspot configured now and the save touched neither of
     /// its items (`HotspotPasswordReport.stands`), and the next outage
     /// reports afresh.
+    /// Pauses failover while Settings tries the hotspot (`HotspotTrial`).
+    func pauseFailover(_ paused: Bool) {
+        network?.paused = paused
+    }
+
     func hotspotPasswordChanged(_ change: HotspotPasswordChange, configuredSSID: String) {
         if status.hotspotPasswordReport?.stands(after: change, configuredSSID: configuredSSID) != true {
             status.hotspotPasswordReport = nil

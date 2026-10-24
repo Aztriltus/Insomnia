@@ -19,6 +19,10 @@ enum EndReason: String, Sendable {
     /// may still have been applied, so the start is undone from the journal
     /// like an end rather than rolled back from memory.
     case startFailed
+    /// A session with no time limit reached its rolling deadline without
+    /// being renewed (`OpenEndedLease`): renewals kept failing, or the app
+    /// was not running to make them.
+    case leaseLapsed
 }
 
 /// What `end` achieved. Callers that are about to quit need to know whether
@@ -440,6 +444,9 @@ final class SessionManager {
 
     @ObservationIgnored private var deadlineTimer: Timer?
     @ObservationIgnored private var countdownTimer: Timer?
+    /// Renews the rolling deadline of a session with no time limit.
+    @ObservationIgnored private var leaseTimer: Timer?
+    var leaseTimerArmed: Bool { leaseTimer != nil }
     @ObservationIgnored private var retryTimer: Timer?
     /// Whether the 1 Hz redraw is currently on the run loop. Tests assert on
     /// this to prove an idle session leaves no repeating wakeup behind.
@@ -1167,6 +1174,15 @@ final class SessionManager {
     /// undone from the journal like an end, and the journal keeps the entry
     /// until that undo is confirmed.
     func start(duration: TimeInterval) async {
+        await start(openEnded: false, duration: duration)
+    }
+
+    /// A session with no time limit (`OpenEndedLease`).
+    func startOpenEnded() async {
+        await start(openEnded: true, duration: OpenEndedLease.lease)
+    }
+
+    private func start(openEnded: Bool, duration: TimeInterval) async {
         guard !quitRequested else {
             Log.info("start ignored: quit requested")
             return
@@ -1176,13 +1192,13 @@ final class SessionManager {
             return
         }
         let ticket = endTicket
-        _ = await exclusive("start") { await self.performStart(duration: duration, ticket: ticket) }
+        _ = await exclusive("start") { await self.performStart(duration: duration, openEnded: openEnded, ticket: ticket) }
         // A start that goes through before a refused launch reconcile runs
         // again drops that reconcile, and takes over its check.
         await settleEarlierCommand()
     }
 
-    private func performStart(duration: TimeInterval, ticket: Int) async {
+    private func performStart(duration: TimeInterval, openEnded: Bool, ticket: Int) async {
         guard session == nil else {
             Log.info("start ignored: session already active")
             return
@@ -1192,7 +1208,10 @@ final class SessionManager {
             return
         }
         let now = clock()
-        let new = SessionMath.newSession(now: now, duration: duration, maxDuration: config.maxDuration)
+        var new = openEnded
+            ? OpenEndedLease.newSession(now: now)
+            : SessionMath.newSession(now: now, duration: duration, maxDuration: config.maxDuration)
+        if !openEnded { new.choice = duration }
         // What was on disk before this attempt, read under the lock. A
         // rollback puts exactly this back: an entry an earlier failed restore
         // left behind is evidence, not something this start may clear.
@@ -1260,12 +1279,62 @@ final class SessionManager {
         lastError = nil
         countdownPaused = clamshell() == true
         foreignSleepWarning = nil
-        Log.info("session started until \(iso(new.endsAt)) (\(Int(duration))s requested)")
+        Log.info(new.openEnded
+            ? "session started with no time limit (rolling deadline \(iso(new.endsAt)))"
+            : "session started until \(iso(new.endsAt)) (\(Int(duration))s requested)")
         await armDeadline(new.endsAt)
         applyAppNapInJournal()
         // Every observer lives in AppServices.
         services?.start(for: self)
-        // PR3: schedule "5 minutes left" notification.
+    }
+
+    /// Switch the running session to a grid duration: it ends `duration`
+    /// from now, whether it had a time limit or not.
+    func setTimeLimit(_ duration: TimeInterval) async {
+        guard session != nil else { return }
+        await replaceSession("switched to \(Int(duration))s") { [config] s, now in
+            OpenEndedLease.settingLimit(s, duration: duration, now: now, maxDuration: config.maxDuration)
+        }
+    }
+
+    /// "Remove time limit" on a timed session.
+    func removeTimeLimit() async {
+        guard let s = session, !s.openEnded else { return }
+        await replaceSession("removed the time limit") { s, now in OpenEndedLease.removingLimit(s, now: now) }
+    }
+
+    /// Moves the rolling deadline of a session with no time limit. Silent:
+    /// nothing is logged unless it fails.
+    func renewLease() async {
+        guard session?.openEnded == true else { return }
+        await replaceSession(nil) { s, now in OpenEndedLease.renewed(s, now: now) }
+    }
+
+    /// Rewrites the session through the same steps as an extension: the
+    /// agent is confirmed loaded before the deadline on disk moves.
+    private func replaceSession(_ what: String?, _ transform: @escaping @MainActor @Sendable (Session, Date) -> Session) async {
+        guard session != nil else { return }
+        let ticket = endTicket
+        _ = await exclusive(what ?? "renew") {
+            guard let current = self.session, self.endTicket == ticket else { return }
+            let updated = transform(current, self.clock())
+            do {
+                try await self.backstop.arm()
+            } catch {
+                self.fail("could not confirm backstop: \(error.localizedDescription)")
+                return
+            }
+            guard self.endTicket == ticket, self.session == current else { return }
+            do {
+                try self.store.saveSession(updated)
+            } catch {
+                self.fail("could not write session: \(error.localizedDescription)")
+                return
+            }
+            self.session = updated
+            if let what { Log.info("session \(what): \(updated.openEnded ? "rolling deadline" : "ends") \(self.iso(updated.endsAt))") }
+            await self.armDeadline(updated.endsAt)
+        }
     }
 
     func extend(by extra: TimeInterval) async {
@@ -1483,7 +1552,11 @@ final class SessionManager {
             if !agentCanFinish { scheduleEndRetry(reason) }
             return .incomplete(agentArmed: agentCanFinish)
         }
-        notifier.post(title: Self.endTitle(reason, had: had), body: endBody(reason, waiting: waiting))
+        // Ending it yourself needs no notification, unless an output is
+        // still muted.
+        if reason != .user || !waiting.isEmpty {
+            notifier.post(title: Self.endTitle(reason, had: had), body: endBody(reason, waiting: waiting))
+        }
         return .restored
     }
 
@@ -2674,9 +2747,9 @@ final class SessionManager {
         // for one too, as on any other dirty journal.
         let savedOutputs = Set(state.savedAudioOutputs.map(\.deviceUID))
         let owesEnd = keptSessionFile != nil ? state.isDirty : state.isDirty(leavingOutAudioOf: savedOutputs)
-        if onDisk != nil {
+        if let expired = onDisk {
             Log.info("reconcile: session expired, restoring")
-            if case .privilegedCommandRunning = await performEnd(reason: .timer) { return }
+            if case .privilegedCommandRunning = await performEnd(reason: expired.openEnded ? .leaseLapsed : .timer) { return }
         } else if owesEnd {
             Log.info(keptSessionFile != nil
                 ? "reconcile: session.json kept in place, restoring the journal as for an expired session"
@@ -2877,19 +2950,24 @@ final class SessionManager {
     }
 
     /// Recompute `remainingText` and `countdownText` from the injected clock.
-    /// Each is only assigned when it changes, so observers are not woken every
-    /// second for the minute-granularity text.
+    /// Each is only assigned when it changes, so observers are woken once a
+    /// minute at most.
     func refreshCountdown() {
         guard let s = session else {
             remainingText = ""
             countdownText = ""
             return
         }
+        if s.openEnded {
+            if remainingText != CountdownFormat.openEnded { remainingText = CountdownFormat.openEnded }
+            if countdownText != CountdownFormat.openEnded { countdownText = CountdownFormat.openEnded }
+            return
+        }
         let remaining = s.remaining(at: clock())
         let minute = SessionMath.formatRemaining(remaining)
         if remainingText != minute { remainingText = minute }
-        let second = SessionMath.formatCountdown(remaining: remaining, shape: s.countdownShape)
-        if countdownText != second { countdownText = second }
+        let text = CountdownFormat.text(remaining: remaining)
+        if countdownText != text { countdownText = text }
     }
 
     // MARK: Private
@@ -2923,33 +3001,60 @@ final class SessionManager {
         let timer = Timer(fire: endsAt, interval: 0, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 guard let self, let s = self.session, s.isExpired(at: self.clock()) else { return }
-                await self.end(reason: .timer)
+                await self.end(reason: s.openEnded ? .leaseLapsed : .timer)
             }
         }
         timer.tolerance = 1
         RunLoop.main.add(timer, forMode: .common)
         deadlineTimer = timer
+        armLeaseTimer()
 
         refreshCountdown()
         if !countdownPaused { armCountdownTimer() }
     }
 
-    /// 1 Hz redraw aligned to whole wall-clock seconds so the digits change
-    /// in step with the menu bar clock. `pauseCountdown()` stops it entirely
+    /// For a session with no time limit, renew the deadline every
+    /// `OpenEndedLease.renewEvery`, and sooner when the deadline is already
+    /// close (a session picked up at launch), so a renewal always lands
+    /// before it. A failed renewal is retried on the next tick.
+    private func armLeaseTimer() {
+        leaseTimer?.invalidate()
+        leaseTimer = nil
+        guard let s = session, s.openEnded else { return }
+        let now = clock()
+        let untilDeadline = s.endsAt.timeIntervalSince(now)
+        let first = max(min(OpenEndedLease.renewEvery, untilDeadline - 5 * 60), 1)
+        let timer = Timer(fire: Date().addingTimeInterval(first), interval: OpenEndedLease.renewEvery, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.renewLease() }
+        }
+        timer.tolerance = 30
+        RunLoop.main.add(timer, forMode: .common)
+        leaseTimer = timer
+    }
+
+    /// Redraws the countdown when its minute text next changes
+    /// (`SessionMath.nextCountdownChange`), once, then re-arms. A session
+    /// with no time limit has nothing to redraw. `pauseCountdown()` stops it
     /// while the lid is closed.
     private func armCountdownTimer() {
         countdownTimer?.invalidate()
         countdownTimer = nil
         // Nothing to redraw without a session. Guarding here rather than in
         // `resumeCountdown` covers every caller: a session that ends while the
-        // lid is shut would otherwise leave lid-open arming a 1 Hz timer that
-        // wakes the run loop forever to format an empty string.
-        guard session != nil else { return }
-        let first = SessionMath.nextSecondBoundary(after: clock())
-        let timer = Timer(fire: first, interval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refreshCountdown() }
+        // lid is shut would otherwise leave lid-open arming a timer that
+        // wakes the run loop to format an empty string.
+        guard let s = session, !s.openEnded else { return }
+        let now = clock()
+        let next = SessionMath.nextCountdownChange(endsAt: s.endsAt, now: now)
+        let timer = Timer(fire: Date().addingTimeInterval(max(next.timeIntervalSince(now), 0.5)), interval: 0, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.countdownTimer = nil
+                self.refreshCountdown()
+                if !self.countdownPaused { self.armCountdownTimer() }
+            }
         }
-        timer.tolerance = 0.1
+        timer.tolerance = 0.5
         RunLoop.main.add(timer, forMode: .common)
         countdownTimer = timer
     }
@@ -2957,6 +3062,8 @@ final class SessionManager {
     private func stopTimers() {
         deadlineTimer?.invalidate()
         deadlineTimer = nil
+        leaseTimer?.invalidate()
+        leaseTimer = nil
         countdownTimer?.invalidate()
         countdownTimer = nil
     }
@@ -3151,10 +3258,10 @@ final class SessionManager {
     nonisolated static func stillMutedSentence(_ waiting: [SavedAudioOutput]) -> String {
         let names = waiting.map(\.label)
         if names.count == 1 {
-            return "\(names[0]) was not connected, so it is still muted. Insomnia restores its volume when it reconnects while Insomnia is running, or at the next launch."
+            return "\(names[0]) is still muted until it reconnects."
         }
         let list = names.dropLast().joined(separator: ", ") + " and " + names[names.count - 1]
-        return "\(list) were not connected, so they are still muted. Insomnia restores each one's volume when it reconnects while Insomnia is running, or at the next launch."
+        return "\(list) are still muted until they reconnect."
     }
 
     /// The incomplete-restore notification's sentence about saved output
@@ -3174,17 +3281,18 @@ final class SessionManager {
 
     private func endBody(_ reason: EndReason, outputsWaiting: Bool) -> String {
         switch reason {
-        case .timer: "Time is up. Sleep is back to normal."
-        case .user: "Ended by you. Sleep is back to normal."
-        case .quit: "Insomnia quit. Sleep is back to normal."
-        case .batteryFloor: "Battery fell below \(config.endFloor)%. Sleep is back to normal."
-        case .batteryUnreadable: "The battery level could not be read twice in a row, so the \(config.endFloor)% floor could not be applied. Sleep is back to normal."
-        case .thermalCritical: "Thermal state is critical. Sleep is back to normal."
+        case .timer: "Time\u{2019}s up."
+        case .user: "Ended."
+        case .quit: "Insomnia quit."
+        case .batteryFloor: "Battery below \(config.endFloor)%."
+        case .batteryUnreadable: "Couldn\u{2019}t read the battery."
+        case .thermalCritical: "Your Mac got too hot."
         case .backstop: outputsWaiting
             ? "A previous session left changes behind. Sleep is back to normal."
             : "A previous session left changes behind; everything has been undone."
         case .recoveryUnavailable: "Insomnia could not arm its recovery agent for the session found on disk, so it ended the session. Sleep is back to normal."
         case .startFailed: "Insomnia could not disable sleep, so no session was started. Sleep is back to normal."
+        case .leaseLapsed: "Insomnia stopped running."
         }
     }
 }

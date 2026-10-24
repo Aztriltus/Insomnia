@@ -5,13 +5,13 @@ import Foundation
 /// with defaults filled in.
 struct Config: Codable, Equatable, Sendable {
     // Session
-    /// Preset durations in seconds, shown as chips.
-    var presets: [TimeInterval] = Config.defaultPresets
-    var defaultPreset: TimeInterval = 4 * 3600
-    /// The pill that is focused when the pills open, for a start and for an
-    /// extend.
-    var defaultFocusField: DurationInput.Field = .hours
-    /// Hard ceiling on a session, including extensions. 30 days.
+    /// The grid's durations in seconds, after "No time limit", and chips in
+    /// Settings (`TemplateList`): at most 8, shortest first. Earlier
+    /// builds' `presets` and `templates` keys are not carried over: the
+    /// grid starts from its own defaults.
+    var durations: [TimeInterval] = TemplateList.freshDefaults
+    /// Hard ceiling on a timed session, including extensions. 30 days. Not
+    /// shown in Settings. A session with no time limit is not bound by it.
     var maxDuration: TimeInterval = 30 * 24 * 3600
 
     // Lid-close actions
@@ -63,6 +63,18 @@ struct Config: Codable, Equatable, Sendable {
 
     // Network failover
     var hotspotSSID: String = ""
+    /// Hardware addresses seen for the hotspot, newest first, at most 4
+    /// (`HotspotMatcher`). Empty for a hotspot an earlier build saved by
+    /// name only.
+    var hotspotBSSIDs: [String] = []
+    /// The hotspot's security mode (`HotspotSecurity`), from the scan it was
+    /// chosen from. nil for a hotspot saved by name only.
+    var hotspotSecurity: String?
+    /// How the last failover join went; nil until one was tried.
+    var hotspotLastJoin: HotspotJoinRecord?
+    /// The user said macOS's Ask to join hotspots is Automatically, for when
+    /// Insomnia can't read that setting itself.
+    var hotspotAutoJoinConfirmed: Bool = false
     /// Seconds of outage after which tmux panes are nudged.
     var nudgeThreshold: TimeInterval = 90
     /// tmux targets as `session:window.pane`. Only a pane carrying the
@@ -96,16 +108,9 @@ struct Config: Codable, Equatable, Sendable {
     /// after dismissal.
     var lidCloseDefaultsNotice: LidCloseDefaultsChange?
 
-    static let defaultPresets: [TimeInterval] = [
-        30 * 60,
-        1 * 3600,
-        2 * 3600,
-        4 * 3600,
-        8 * 3600,
-        12 * 3600,
-        24 * 3600,
-        3 * 24 * 3600,
-    ]
+    // Settings window
+    /// Whether the Advanced group was left open.
+    var advancedExpanded: Bool = false
 
     /// Default freeze list: chat apps that burn battery in the background.
     static let defaultFreezeList: [String] = [
@@ -144,11 +149,11 @@ struct Config: Codable, Equatable, Sendable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = Config()
-        presets = try c.decodeIfPresent([TimeInterval].self, forKey: .presets) ?? d.presets
-        defaultPreset = try c.decodeIfPresent(TimeInterval.self, forKey: .defaultPreset) ?? d.defaultPreset
-        // A value this build does not know falls back to hours; it must not
-        // cost the user the rest of the config.
-        defaultFocusField = (try? c.decodeIfPresent(DurationInput.Field.self, forKey: .defaultFocusField)) ?? d.defaultFocusField
+        if let saved = try c.decodeIfPresent([TimeInterval].self, forKey: .durations) {
+            durations = saved == TemplateList.previousDefaults ? d.durations : TemplateList.normalized(saved)
+        } else {
+            durations = d.durations
+        }
         maxDuration = try c.decodeIfPresent(TimeInterval.self, forKey: .maxDuration) ?? d.maxDuration
         freezeList = try c.decodeIfPresent([String].self, forKey: .freezeList) ?? d.freezeList
         freezeAllApps = try c.decodeIfPresent(Bool.self, forKey: .freezeAllApps) ?? d.freezeAllApps
@@ -166,11 +171,70 @@ struct Config: Codable, Equatable, Sendable {
         endFloor = try c.decodeIfPresent(Int.self, forKey: .endFloor) ?? d.endFloor
         thermalRules = try c.decodeIfPresent(Bool.self, forKey: .thermalRules) ?? d.thermalRules
         hotspotSSID = try c.decodeIfPresent(String.self, forKey: .hotspotSSID) ?? d.hotspotSSID
+        hotspotBSSIDs = try c.decodeIfPresent([String].self, forKey: .hotspotBSSIDs) ?? d.hotspotBSSIDs
+        hotspotSecurity = try c.decodeIfPresent(String.self, forKey: .hotspotSecurity)
+        hotspotLastJoin = try? c.decodeIfPresent(HotspotJoinRecord.self, forKey: .hotspotLastJoin)
+        advancedExpanded = try c.decodeIfPresent(Bool.self, forKey: .advancedExpanded) ?? d.advancedExpanded
+        hotspotAutoJoinConfirmed = try c.decodeIfPresent(Bool.self, forKey: .hotspotAutoJoinConfirmed) ?? d.hotspotAutoJoinConfirmed
         nudgeThreshold = try c.decodeIfPresent(TimeInterval.self, forKey: .nudgeThreshold) ?? d.nudgeThreshold
         tmuxTargets = try c.decodeIfPresent([String].self, forKey: .tmuxTargets) ?? d.tmuxTargets
         tmuxNudgePressesEnter = try c.decodeIfPresent(Bool.self, forKey: .tmuxNudgePressesEnter) ?? d.tmuxNudgePressesEnter
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? d.launchAtLogin
         launchAtLoginInstall = try c.decodeIfPresent(String.self, forKey: .launchAtLoginInstall)
+        // An app is in one list at most; one in both keeps the protective
+        // choice (full speed) and leaves the pause list.
+        freezeList.removeAll { agentList.contains($0) }
+    }
+
+    /// The saved hotspot, for `HotspotMatcher`.
+    var savedHotspot: SavedHotspot {
+        SavedHotspot(ssid: HotspotSSID.normalized(hotspotSSID), bssids: hotspotBSSIDs, security: hotspotSecurity)
+    }
+}
+
+/// How the last failover join to the saved hotspot went.
+struct HotspotJoinRecord: Codable, Equatable, Sendable {
+    enum Result: String, Codable, Sendable {
+        case worked
+        case rejected
+    }
+
+    var result: Result
+    var at: Date
+}
+
+// MARK: App lists
+
+extension Config {
+    enum AppList: Sendable {
+        case pause
+        case fullSpeed
+    }
+
+    func contains(_ bundleID: String, in list: AppList) -> Bool {
+        switch list {
+        case .pause: freezeList.contains(bundleID)
+        case .fullSpeed: agentList.contains(bundleID)
+        }
+    }
+
+    /// Adds the app to `list`, taking it off the other one.
+    mutating func add(_ bundleID: String, to list: AppList) {
+        switch list {
+        case .pause:
+            agentList.removeAll { $0 == bundleID }
+            if !freezeList.contains(bundleID) { freezeList.append(bundleID) }
+        case .fullSpeed:
+            freezeList.removeAll { $0 == bundleID }
+            if !agentList.contains(bundleID) { agentList.append(bundleID) }
+        }
+    }
+
+    mutating func remove(_ bundleID: String, from list: AppList) {
+        switch list {
+        case .pause: freezeList.removeAll { $0 == bundleID }
+        case .fullSpeed: agentList.removeAll { $0 == bundleID }
+        }
     }
 }
 
@@ -207,8 +271,8 @@ struct LidCloseDefaultsChange: Codable, Equatable, Sendable {
     /// is now on.
     var changes: String {
         var parts: [String] = []
-        if turnedOffFreezeAll { parts.append("\"Freeze every other app while the lid is closed\" is now off") }
-        if turnedOnMute { parts.append("\"Mute audio on lid close\" is now on") }
+        if turnedOffFreezeAll { parts.append("\"Pause every other app\" is now off") }
+        if turnedOnMute { parts.append("\"Mute sound\" is now on") }
         return parts.joined(separator: " and ")
     }
 
@@ -216,7 +280,7 @@ struct LidCloseDefaultsChange: Codable, Equatable, Sendable {
 
     var notificationBody: String {
         "This update changed \(both ? "two lid-close settings" : "a lid-close setting"): \(changes). "
-            + "To change \(both ? "them" : "it") back, choose Settings\u{2026} from the Insomnia menu bar icon and look under Lid-close actions."
+            + "To change \(both ? "them" : "it") back, choose Settings\u{2026} from the Insomnia menu bar icon and look under Advanced, When the lid closes."
     }
 
     var settingsLine: String {

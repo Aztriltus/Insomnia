@@ -116,14 +116,13 @@ enum SleepHeldLine {
 
     static func line(sessionActive: Bool, sleepHeld: Bool) -> Line? {
         switch (sessionActive, sleepHeld) {
-        case (true, true):
-            Line(text: "Sleep held per journal \u{2014} not verified live", isWarning: false)
-        case (true, false):
-            Line(text: "Sleep is not held \u{2014} this session is not keeping the Mac awake", isWarning: true)
-        case (false, true):
-            Line(text: "Sleep still held with no session", isWarning: true)
-        case (false, false):
+        // The normal case says nothing: the first line already says Active.
+        case (true, true), (false, false):
             nil
+        case (true, false):
+            Line(text: "Not keeping the Mac awake", isWarning: true)
+        case (false, true):
+            Line(text: "Sleep is still turned off", isWarning: true)
         }
     }
 }

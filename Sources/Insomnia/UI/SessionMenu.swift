@@ -1,0 +1,146 @@
+import Foundation
+
+/// The session part of the status item's menu: a line that says whether
+/// Insomnia is active, then a grid of ∞ and the saved durations. Clicking a
+/// cell starts that session, or switches the running one to it; clicking the
+/// highlighted cell ends the session. Pure, so each state can be tested
+/// without AppKit; `StatusItemController` builds the NSMenu.
+enum SessionMenu {
+    enum State: Equatable, Sendable {
+        case idle
+        case starting
+        /// The last start was refused.
+        case failed
+        /// `choice` is the grid duration it was started with or switched
+        /// to, nil when not known (a session an earlier build started).
+        case running(endsAt: Date, choice: TimeInterval?)
+        case openEnded
+    }
+
+    /// One cell of the grid.
+    enum Cell: Equatable, Hashable, Sendable {
+        case openEnded
+        case duration(TimeInterval)
+
+        var title: String {
+            switch self {
+            case .openEnded: CountdownFormat.openEnded
+            case let .duration(d): DurationLabel.short(d)
+            }
+        }
+
+        var accessibilityTitle: String {
+            switch self {
+            case .openEnded: "No time limit"
+            case let .duration(d): DurationLabel.long(d)
+            }
+        }
+    }
+
+    /// What clicking a cell does.
+    enum Action: Equatable, Sendable {
+        case start(Cell)
+        case switchTo(Cell)
+        case end
+        case none
+    }
+
+    enum Item: Equatable, Sendable {
+        /// The first row, like the Battery menu's: the eye, the state in
+        /// bold, and a grey value on the right ("until 6:40 PM").
+        case header(title: String, value: String?, eyeOpen: Bool)
+        /// A grey section heading, like "Energy Mode".
+        case section(String)
+        /// "Couldn't start. Try again.", drawn as a warning.
+        case failure(String)
+        /// `selectedTitle` replaces the highlighted cell's label: the time
+        /// left, counting down ("43m", "1h 59m"), or ∞.
+        case grid(cells: [Cell], selected: Cell?, selectedTitle: String?, enabled: Bool)
+        /// Only when a session runs and no cell is highlighted, so there is
+        /// always a way to end it.
+        case endSession
+    }
+
+    static let inactiveTitle = "Inactive"
+    static let activeTitle = "Active"
+    static let startingTitle = "Starting\u{2026}"
+    static let gridSection = "Keep awake for"
+    static let endSessionTitle = "End session"
+
+    static func cells(_ durations: [TimeInterval]) -> [Cell] {
+        [.openEnded] + TemplateList.normalized(durations).map { .duration($0) }
+    }
+
+    static func selected(_ state: State) -> Cell? {
+        switch state {
+        case .openEnded: .openEnded
+        case let .running(_, choice): choice.map { .duration($0) }
+        case .idle, .starting, .failed: nil
+        }
+    }
+
+    static func items(
+        state: State,
+        durations: [TimeInterval],
+        now: Date,
+        calendar: Calendar = .current,
+        locale: Locale = .current
+    ) -> [Item] {
+        let cells = cells(durations)
+        switch state {
+        case .idle:
+            return [.header(title: inactiveTitle, value: nil, eyeOpen: false), .section(gridSection), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true)]
+        case .starting:
+            return [.header(title: startingTitle, value: nil, eyeOpen: true), .section(gridSection), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: false)]
+        case .failed:
+            return [.header(title: inactiveTitle, value: nil, eyeOpen: false), .failure(failureLine), .section(gridSection), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true)]
+        case .openEnded:
+            return [.header(title: activeTitle, value: "No time limit", eyeOpen: true), .section(gridSection), .grid(cells: cells, selected: .openEnded, selectedTitle: CountdownFormat.openEnded, enabled: true)]
+        case let .running(endsAt, _):
+            let selected = selected(state).flatMap { cells.contains($0) ? $0 : nil }
+            var out: [Item] = [
+                .header(title: activeTitle, value: untilPhrase(endsAt: endsAt, now: now, calendar: calendar, locale: locale), eyeOpen: true),
+                .section(gridSection),
+                .grid(cells: cells, selected: selected, selectedTitle: CountdownFormat.text(remaining: endsAt.timeIntervalSince(now)), enabled: true),
+            ]
+            if selected == nil { out.append(.endSession) }
+            return out
+        }
+    }
+
+    /// What clicking `cell` does in `state`.
+    static func action(for cell: Cell, in state: State) -> Action {
+        switch state {
+        case .starting:
+            return .none
+        case .idle, .failed:
+            return .start(cell)
+        case .openEnded, .running:
+            return selected(state) == cell ? .end : .switchTo(cell)
+        }
+    }
+
+    /// The reason is in the log; the menu says what happened and what to do.
+    static let failureLine = "Couldn\u{2019}t start. Try again."
+
+    /// "until 6:40 PM" today, "until Sat 6:40 PM" within the week,
+    /// "until Oct 30, 6:40 PM" after that.
+    static func untilPhrase(endsAt: Date, now: Date, calendar: Calendar, locale: Locale) -> String {
+        var time = Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: calendar)
+        time.timeZone = calendar.timeZone
+        let clock = endsAt.formatted(time)
+        if calendar.isDate(endsAt, inSameDayAs: now) {
+            return "until \(clock)"
+        }
+        let startOfToday = calendar.startOfDay(for: now)
+        let days = calendar.dateComponents([.day], from: startOfToday, to: calendar.startOfDay(for: endsAt)).day ?? 0
+        if days < 7 {
+            var weekday = Date.FormatStyle(locale: locale, calendar: calendar).weekday(.abbreviated)
+            weekday.timeZone = calendar.timeZone
+            return "until \(endsAt.formatted(weekday)) \(clock)"
+        }
+        var day = Date.FormatStyle(locale: locale, calendar: calendar).month(.abbreviated).day()
+        day.timeZone = calendar.timeZone
+        return "until \(endsAt.formatted(day)), \(clock)"
+    }
+}

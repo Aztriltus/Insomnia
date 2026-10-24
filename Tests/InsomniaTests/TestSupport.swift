@@ -1049,3 +1049,18 @@ enum TestACL {
         return count
     }
 }
+
+extension ProcessExit {
+    /// Awaits `exited()` for at most `seconds` and says whether it returned.
+    /// The await runs in an unstructured task that nothing waits on, so if
+    /// `exited()` never resumes, the caller still gets `false` at the limit
+    /// instead of hanging the suite.
+    func exited(within seconds: TimeInterval) async -> Bool {
+        let returned = XCTestExpectation(description: "exited() returned")
+        Task {
+            await exited()
+            returned.fulfill()
+        }
+        return await XCTWaiter().fulfillment(of: [returned], timeout: seconds) == .completed
+    }
+}
