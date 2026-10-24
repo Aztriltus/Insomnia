@@ -161,6 +161,7 @@ It sets the version and build number in Info.plist and commits that, builds the 
 - The first Developer ID build has to be installed with its installer, once, so the agent pins the team requirement. Updates after that need no reinstall.
 - `install.sh --app` installs a bundle signed by team `H37KGF95Y9` that Gatekeeper accepts as notarized without `--allow-unverified-origin` or its warning; anything else still needs the flag.
 - First signed, notarized build: 0.1.0, installed from the DMG on 2026-10-24. Apple took about 30 minutes for the team’s first submission.
+- First release: [v0.2.0](https://github.com/Aztriltus/Insomnia/releases/tag/v0.2.0), published with `release.sh` on 2026-10-24 (build 549).
 - An update ends a running session, like any quit.
 - Upstream's `release.yml` is manual-only in this fork, so a `v*` tag can't publish an unsigned zip over a release.
 
