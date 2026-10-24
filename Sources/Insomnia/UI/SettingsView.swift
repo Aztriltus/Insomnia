@@ -23,6 +23,10 @@ struct SettingsView: View {
     /// A hotspot save is running: the name changes before the password is
     /// stored, and a check then would read the old network's item.
     @State private var savingHotspot = false
+    /// Try now: asking first, running, and what it found.
+    @State private var confirmingTrial = false
+    @State private var trying = false
+    @State private var trialMessage: String?
     /// Names of the apps "Pause every other app" would pause right now.
     @State private var wouldFreeze: [String] = []
     @State private var picker: Config.AppList?
@@ -195,8 +199,19 @@ struct SettingsView: View {
                         Text(hotspotStatus).font(.caption).foregroundStyle(manager.config.hotspotLastJoin?.result == .rejected ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
                     }
                     Spacer()
+                    Button(trying ? "Trying\u{2026}" : "Try now") { confirmingTrial = true }
+                        .disabled(trying)
                     Button("Change\u{2026}") { showingHotspotSheet = true }
                     Button("Remove", action: removeHotspot)
+                }
+                .alert("Try the hotspot?", isPresented: $confirmingTrial) {
+                    Button("Try", action: tryHotspot)
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Your Wi-Fi drops for a few seconds.")
+                }
+                if let trialMessage {
+                    Text(trialMessage).font(.callout).foregroundStyle(.orange)
                 }
             }
             if HotspotAutoJoin.showsRequirement(autoJoin, confirmed: manager.config.hotspotAutoJoinConfirmed) {
@@ -256,6 +271,34 @@ struct SettingsView: View {
             if case let .failed(notice) = outcome { saveNotice = notice } else { saveNotice = nil }
             savingHotspot = false
             recheckPassword()
+        }
+    }
+
+    /// Joins the saved hotspot once, with failover paused so the drop isn't
+    /// taken for an outage, records how it went, and returns to the previous
+    /// network (`HotspotTrial`).
+    private func tryHotspot() {
+        trying = true
+        trialMessage = nil
+        let saved = manager.config.savedHotspot
+        Task {
+            let password = (try? await secrets.peek()) ?? nil
+            guard password != nil || saved.security == HotspotSecurity.open else {
+                trialMessage = HotspotTrial.Result.noPassword.message
+                trying = false
+                return
+            }
+            manager.services?.pauseFailover(true)
+            let result = await HotspotTrial.run(saved: saved, password: password ?? "")
+            manager.services?.pauseFailover(false)
+            if let (outcome, bssid) = result.record {
+                update { c in
+                    c.hotspotLastJoin = HotspotJoinRecord(result: outcome, at: Date())
+                    c.hotspotBSSIDs = HotspotMatcher.recording(bssid, into: c.hotspotBSSIDs)
+                }
+            }
+            trialMessage = result.message
+            trying = false
         }
     }
 

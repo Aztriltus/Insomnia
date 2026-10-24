@@ -324,6 +324,11 @@ final class AppServices {
     /// about the hotspot configured now and the save touched neither of
     /// its items (`HotspotPasswordReport.stands`), and the next outage
     /// reports afresh.
+    /// Pauses failover while Settings tries the hotspot (`HotspotTrial`).
+    func pauseFailover(_ paused: Bool) {
+        network?.paused = paused
+    }
+
     func hotspotPasswordChanged(_ change: HotspotPasswordChange, configuredSSID: String) {
         if status.hotspotPasswordReport?.stands(after: change, configuredSSID: configuredSSID) != true {
             status.hotspotPasswordReport = nil

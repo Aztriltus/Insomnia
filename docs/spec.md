@@ -1,6 +1,6 @@
 # Insomnia spec
 
-What Insomnia does, feature by feature, as behaviour. Anything marked **Planned** is not built yet. How the build does it is in [engineering.md](engineering.md); why it is this way is in [decisions.md](decisions.md).
+What Insomnia does, feature by feature, as behaviour. How the build does it is in [engineering.md](engineering.md); why it is this way is in [decisions.md](decisions.md).
 
 ## Product
 
@@ -151,11 +151,11 @@ During a session only. Without a session, the lid does nothing special.
    - Secured and saved on this Mac: Use saved password, which looks in your keychain first (where an iCloud-synced hotspot’s password usually is) and only then shows macOS’s own administrator dialog; cancelling falls back to typing it.
    - Otherwise: type the password and Save. It must be 8 to 63 characters.
 5. The saved row shows "Not tried yet", "Worked on Oct 23", or "Password didn't work on Oct 23", with Change… and Remove.
-6. **Planned:** a **Try now** button that joins on purpose, after warning that Wi-Fi drops for a few seconds, then returns to the previous network.
+6. **Try now** asks first ("Your Wi-Fi drops for a few seconds."), then joins the hotspot once with the saved password, with failover paused so the drop isn’t taken for an outage. It records "Worked on …" or "Password didn’t work on …", then disconnects so macOS rejoins the previous network. If that doesn’t happen within 20 seconds it says "Couldn’t get back on Home. Choose it in the Wi-Fi menu."; if the hotspot isn’t broadcasting, "Not in range. Open Personal Hotspot on your iPhone and try again."
 
 **macOS’s own auto-join.** Only macOS can wake an iPhone hotspot that isn’t broadcasting, and only when System Settings > Wi-Fi > Ask to join hotspots is Automatically. Settings shows a warning row, "Set Ask to join hotspots to Automatically", with Open Wi-Fi Settings. macOS usually won’t let Insomnia read that setting (it needs Full Disk Access), so the row has a Done button that hides it for good; when Insomnia can read the setting, the row follows it instead: hidden for Automatically, shown for Ask or Never.
 
-**Not tried yet** changes the first time failover joins the hotspot, to "Worked on Oct 24" or "Password didn’t work on Oct 24". The saved password is tied to the build of Insomnia that saved it, so after a reinstall it has to be chosen again.
+**Not tried yet** changes after Try now, or the first time failover joins the hotspot, to "Worked on Oct 24" or "Password didn’t work on Oct 24". The saved password is tied to the build of Insomnia that saved it, so after a reinstall it has to be chosen again.
 
 **Failover**, during a session only, starts when Wi-Fi drops for 5 seconds, or stays connected with no internet for three checks 10 seconds apart. Insomnia joins the saved network, recognised by its hardware address first and its name second, retrying after 5, 10, 20 and 30 seconds, then every 30 seconds. A rejected password sends one notification ("The hotspot password didn't work. Update it in Settings.") and stops retries until the password changes.
 

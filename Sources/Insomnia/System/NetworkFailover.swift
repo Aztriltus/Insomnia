@@ -786,6 +786,31 @@ final class NetworkFailover {
 
     private var monitor: NWPathMonitor?
     private(set) var retryTimer: Timer?
+    /// Set while Settings tries the hotspot on purpose: the Wi-Fi drop that
+    /// causes is not an outage, so nothing reacts to it, the tmux nudge
+    /// included. Clearing it starts afresh from the path as it is then.
+    var paused = false {
+        didSet {
+            guard paused != oldValue else { return }
+            if paused {
+                cancelTimer()
+                internetCheckTask?.cancel()
+                internetCheckTask = nil
+                internetChecks.reset()
+                outageFromCheck = false
+                outage += 1
+                machine = FailoverMachine()
+                Log.info("network failover paused for a hotspot trial")
+            } else {
+                Log.info("network failover resumed")
+                if let path = monitor?.currentPath {
+                    let satisfied = path.status == .satisfied
+                    handlePath(satisfied: satisfied)
+                    pathChangedForInternetCheck(satisfied: satisfied)
+                }
+            }
+        }
+    }
     /// "Connected but no internet" (redesign spec, section 3): the
     /// captive-portal check runs after a path change while Wi-Fi is up, and
     /// again every `InternetCheckCounter.spacing` while it fails; three
@@ -918,6 +943,7 @@ final class NetworkFailover {
     /// What the NWPathMonitor calls. Internal so tests can exercise the
     /// driver-owned task without a monitor.
     func handlePath(satisfied: Bool) {
+        guard !paused else { return }
         track { [weak self] in await self?.process(satisfied: satisfied) }
     }
 
@@ -1151,6 +1177,7 @@ final class NetworkFailover {
     /// A path change: with Wi-Fi up, check the internet; with it down, the
     /// path itself is the outage.
     private func pathChangedForInternetCheck(satisfied: Bool) {
+        guard !paused else { return }
         internetCheckTask?.cancel()
         internetCheckTask = nil
         internetChecks.reset()

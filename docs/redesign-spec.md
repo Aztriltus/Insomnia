@@ -27,7 +27,7 @@ change:
 Where the build differs from the sections below:
 
 - **The menu bar and menu (section 1) were replaced on 2026-10-24.** The status item is the eye alone in the standard square slot, with no countdown. The menu follows macOS's Battery menu: a first row with the eye and the state, then a three-column grid of ∞ and the durations, with no custom field. [spec.md](spec.md) §2 describes it. `DurationParser` remains, for adding durations in Settings.
-- **Try now** (section 3, step 8) is not built yet. Setup never joins.
+- **Try now** (section 3, step 8) was built on 2026-10-24, from Settings’ hotspot row rather than the setup sheet: you choose the network first, then try it.
 - **The internet check** uses HTTPS (`https://captive.apple.com/hotspot-detect.html`), so no App Transport Security exception is needed. A captive portal fails it, as intended.
 - **Config keys** stay flat for compatibility with older builds: `durations`, `hotspotSSID`, `hotspotBSSIDs`, `hotspotSecurity`, `hotspotLastJoin` and `advancedExpanded`. There's no `version` field, and migration is by key.
 - **A rejected password** means CoreWLAN error -3912, -3924 or -3925. A plain timeout (-3905) is treated as "not found", not "rejected".

@@ -385,6 +385,23 @@ final class HotspotSetupTests: XCTestCase {
         XCTAssertEqual(rows[2].bssids, [])
     }
 
+    /// Try now records a join that got as far as the password, and only
+    /// speaks up when there's something to do.
+    func testTrialResults() {
+        typealias R = HotspotTrial.Result
+        XCTAssertNil(R.worked(bssid: "aa", backOn: "Home", returned: true).message)
+        XCTAssertNil(R.worked(bssid: nil, backOn: nil, returned: false).message, "nothing to go back to")
+        XCTAssertEqual(R.worked(bssid: "aa", backOn: "Home", returned: false).message, "Couldn\u{2019}t get back on Home. Choose it in the Wi-Fi menu.")
+        XCTAssertNil(R.rejected(backOn: "Home", returned: true).message, "the row's status says the password didn't work")
+        XCTAssertEqual(R.notFound.message, "Not in range. Open Personal Hotspot on your iPhone and try again.")
+        XCTAssertEqual(R.worked(bssid: "aa", backOn: nil, returned: true).record?.0, .worked)
+        XCTAssertEqual(R.worked(bssid: "aa", backOn: nil, returned: true).record?.1, "aa")
+        XCTAssertEqual(R.rejected(backOn: nil, returned: true).record?.0, .rejected)
+        XCTAssertNil(R.notFound.record, "not finding it says nothing about the password")
+        XCTAssertNil(R.noPassword.record)
+        XCTAssertNil(R.failed.record)
+    }
+
     /// A saved profile and a scan must name the same security, or a hotspot
     /// saved out of range would never match when it appears.
     func testSavedProfileSecurityNamesMatchTheScansNames() {

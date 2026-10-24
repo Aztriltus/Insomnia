@@ -95,7 +95,7 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 **Replaced:** checking the network by joining it during setup → no join during setup (2026-10-23).
 
 <details>
-<summary>7 decisions</summary>
+<summary>8 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
@@ -121,6 +121,7 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 | 2026-10-24 | **The setup sheet also lists networks macOS has saved that aren’t in range, so the iPhone hotspot can be chosen without opening its Personal Hotspot screen.** | "Usually I won’t do that when I need it to auto-connect." | Listing only what a scan sees. |
 | 2026-10-24 | **Use saved password tries the user’s own keychain before macOS’s administrator dialog.** | The admin dialog is macOS’s; no API fills in its name. | Prefilling the dialog. |
 | 2026-10-24 | **Settings checks macOS’s Ask to join hotspots (`AutoHotspotMode`) and asks for Automatically when it’s Ask or Never.** | Only macOS can wake a hotspot that isn’t broadcasting; Ask needs someone at the Mac. | Leaving it to the README. |
+| 2026-10-24 | **Try now joins the saved hotspot once to check the password, with failover paused, then disconnects so macOS rejoins the previous network.** | "Are we able to offer a step to let users try?" | Leaving the status at Not tried yet until a real outage. |
 | 2026-10-24 | **The auto-join row is a requirement with a warning icon and a Done button, because a normally launched app is refused that preferences file.** | The row showed while the setting was Automatically; "it needs to show warning icon so it looks more like a requirement". | Claiming the setting is off when it can’t be read; asking for Full Disk Access. |
 
 </details>
@@ -167,7 +168,6 @@ These came from Claude after the review, not from the owner. Confirm or change e
 - The grid's durations are editable in Settings (up to 7), and earlier builds' presets aren't carried over: everyone starts from the grid defaults.
 - A running session whose duration isn't in the grid gets an End session item, so it can always be ended.
 - While starting, the grid is greyed out.
-- "Try now" is deferred; setup never joins.
 
 ## Open questions
 
