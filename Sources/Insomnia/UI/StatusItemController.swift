@@ -265,10 +265,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     #if DEBUG
     /// Debug builds only: `INSOMNIA_DEBUG_MENU=open` opens the menu six
     /// seconds after launch, so its rendering can be captured without a
-    /// mouse; `=throttled` also clicks the first throttled browser's icon.
+    /// mouse; `=throttled` also clicks the first throttled browser's icon,
+    /// and `=settings` opens Settings instead of the menu.
     private func debugAtLaunch() {
-        guard ProcessInfo.processInfo.environment["INSOMNIA_DEBUG_MENU"] != nil else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in self?.showMenu() }
+        guard let hook = ProcessInfo.processInfo.environment["INSOMNIA_DEBUG_MENU"] else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+            if hook == "settings" { self?.showSettings() } else { self?.showMenu() }
+        }
     }
 
     private func debugWhileOpen(_ menu: NSMenu) {

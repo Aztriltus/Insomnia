@@ -84,7 +84,7 @@ To install
 2. Enter your Mac password when Terminal asks. It's used once, to let
    Insomnia turn sleep off and on.
 3. Insomnia opens as an eye in the menu bar. It updates itself from then
-   on: Settings > Advanced > About > Check for updates, or automatically.
+   on: Check for updates at the top of Settings, or automatically.
 
 For hotspot backup, set System Settings > Wi-Fi > Ask to join hotspots to
 Automatically.

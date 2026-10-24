@@ -137,7 +137,7 @@ Disk image to hand to other people (`dist/Insomnia-<version>.dmg` and its `.sha2
 
 ## Runbook: releasing an update
 
-Installed copies check `https://github.com/Aztriltus/Insomnia/releases/latest/download/appcast.xml` once a day with Sparkle (`UI/AppUpdater.swift`, `SUFeedURL` and `SUPublicEDKey` in Info.plist), and Settings > Advanced > About > Check for updates checks now.
+Installed copies check `https://github.com/Aztriltus/Insomnia/releases/latest/download/appcast.xml` once a day with Sparkle (`UI/AppUpdater.swift`, `SUFeedURL` and `SUPublicEDKey` in Info.plist), and Check for updates at the top of Settings checks now.
 
 One-time setup on the release Mac:
 
@@ -168,7 +168,7 @@ It sets the version and build number in Info.plist and commits that, builds the 
 Testing:
 
 - `InsomniaTests` has 22 test files, about 515 tests, and runs in under a minute. On 2026-10-24 it was cut from about 1,250 tests and 20 minutes down to the essentials: the session engine, recovery and reconcile, sleep guard, lid actions and freezing, floors, failover, config, the menu and the redesign's pure logic, plus 15 core recovery-script cases and the 2 recovery-agent signature checks. The removed tests are in git history before that date.
-- To see the menu without a mouse, run a debug build with `INSOMNIA_DEBUG_MENU=open` (opens the menu 2 seconds after launch) or `=throttled` (also clicks the first throttled browser's icon), with `INSOMNIA_HOME` set to a scratch folder, and capture it with `screencapture`. Don't click grid cells in such a build: a session would load the real recovery agent's launchd label.
+- To see the menu without a mouse, run a debug build with `INSOMNIA_DEBUG_MENU=open` (opens the menu 6 seconds after launch), `=throttled` (also clicks the first throttled browser's icon) or `=settings` (opens Settings instead), with `INSOMNIA_HOME` set to a scratch folder, and capture it with `screencapture`. Don't click grid cells in such a build: a session would load the real recovery agent's launchd label.
 - The C target `InsomniaTestHome` points `INSOMNIA_HOME` at a temporary folder when the bundle loads, and aborts if it can't.
 - Fakes live in `TestSupport.swift`: `FakeSleepGuard`, `FakeBackstop`, `FakeProcessControl`, `FakeAudioControl`, `FakeDisplayDimmer` and `FakeClock`.
 - Keychain tests use a throwaway keychain file.

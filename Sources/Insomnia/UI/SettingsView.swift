@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// The settings window (redesign spec, section 2). The top level holds the
-/// two app lists, the durations, the hotspot and Open at login; everything
-/// else is under Advanced. Every change is written straight through
+/// The settings window (redesign spec, section 2). The top level holds
+/// Open at login and the version, the two app lists, the durations and the
+/// hotspot; everything else is under Advanced. Every change is written straight through
 /// `manager.config` to config.json.
 struct SettingsView: View {
     let manager: SessionManager
@@ -39,10 +39,10 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            generalSection
             appsSection
             durationsSection
             hotspotSection
-            loginSection
             Section {
                 DisclosureGroup("Advanced", isExpanded: bind(\.advancedExpanded)) {
                     VStack(alignment: .leading, spacing: 18) {
@@ -340,12 +340,18 @@ struct SettingsView: View {
         return ("", notice)
     }
 
-    // MARK: Open at login
+    // MARK: Open at login and version
 
-    private var loginSection: some View {
+    private var generalSection: some View {
         Section {
             Toggle("Open at login", isOn: launchAtLogin)
             loginItemNote
+            LabeledContent {
+                releaseCheck
+            } label: {
+                Text("Version")
+                Text(AppBuild.current.label).textSelection(.enabled)
+            }
         }
     }
 
@@ -465,13 +471,6 @@ struct SettingsView: View {
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("About").font(.headline)
-            LabeledContent("Version") {
-                Text(AppBuild.current.label)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-            }
-            releaseCheck
             Button("Show settings file in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([manager.paths.configFile])
             }

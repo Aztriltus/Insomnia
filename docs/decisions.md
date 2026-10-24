@@ -74,18 +74,19 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 
 ## Settings
 
-**Where it stands:** *(planned)* progressive disclosure. The top level shows two equal app lists, durations, hotspot and Open at login; everything else is folded under Advanced. Only installed apps are shown, as a small icon and name.
+**Where it stands:** progressive disclosure. The top level opens with Open at login and the version with Check for updates, then two equal app lists, durations and hotspot; everything else is folded under Advanced. Only installed apps are shown, as a small icon and name.
 
 **Replaced:** none.
 
 <details>
-<summary>3 decisions</summary>
+<summary>4 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
-| 2026-10-23 | **Use progressive disclosure to hide most settings away and clean the window up.** *(planned)* | The owner's brief. | One long window. |
-| 2026-10-23 | **Only apps the user downloaded are shown, each as its icon and a small title; apps they don't have are hidden.** *(planned)* | Users should only think about whether apps are added. | Typed bundle identifiers; showing defaults for apps that aren't installed. |
-| 2026-10-23 | **Two equal lists at the top: "Pause when the lid closes" and "Keep at full speed".** *(planned)* | Chosen from mockups. | One list with the other under Advanced; one grid with three states per app. |
+| 2026-10-23 | **Use progressive disclosure to hide most settings away and clean the window up.** | The owner's brief. | One long window. |
+| 2026-10-23 | **Only apps the user downloaded are shown, each as its icon and a small title; apps they don't have are hidden.** | Users should only think about whether apps are added. | Typed bundle identifiers; showing defaults for apps that aren't installed. |
+| 2026-10-23 | **Two equal lists at the top: "Pause when the lid closes" and "Keep at full speed".** | Chosen from mockups. | One list with the other under Advanced; one grid with three states per app. |
+| 2026-10-24 | **Open at login and the version with Check for updates sit at the top of Settings, outside Advanced.** | "Lets put it in the non-advanced settings though, maybe at the top." | Check for updates under Advanced > About. |
 
 </details>
 
@@ -129,12 +130,12 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 
 ## Distribution
 
-**Where it stands:** a DMG built by `scripts/build-dmg.sh`, ad-hoc signed and not notarized; installing runs the bundled installer. TestFlight isn't possible for this app.
+**Where it stands:** a DMG signed with the owner’s Developer ID and notarized, published to the fork’s GitHub Releases by `scripts/release.sh`; installed copies update themselves with Sparkle. Installing runs the bundled installer. TestFlight isn't possible for this app.
 
 **Replaced:** none.
 
 <details>
-<summary>7 decisions</summary>
+<summary>8 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
@@ -144,6 +145,7 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 | 2026-10-24 | **Over-the-air updates with Sparkle, from an appcast on the fork’s GitHub Releases (`releases/latest/download/appcast.xml`), released with `scripts/release.sh`.** | "So they can just check for updates and get it when I update it." | GitHub Pages for the appcast; upstream’s report-only update check. |
 | 2026-10-24 | **The installer trusts a bundle signed by team H37KGF95Y9 and accepted by Gatekeeper as notarized, without `--allow-unverified-origin`.** | Its old warning ("not notarized", "origin not verified") was wrong for signed builds. | Warning on every prebuilt bundle. |
 | 2026-10-24 | **Upstream’s release workflow is manual-only in the fork.** | A `v*` tag would otherwise publish an unsigned zip and collide with the release from `release.sh`. | Keeping tag and nightly triggers. |
+| 2026-10-24 | **Confirmed on the device: Check for updates in a signed 0.1.0 installed v0.2.0 in place, and the recovery agent still accepted the updated app.** | Owner tested the first over-the-air update. | — |
 | 2026-10-24 | **No TestFlight.** | TestFlight only carries App Store builds, which must be sandboxed; Insomnia runs `sudo pmset`, pauses other apps' processes, uses private display APIs and installs a launchd agent. | Reworking the app for the App Store. |
 
 </details>

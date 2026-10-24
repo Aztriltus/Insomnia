@@ -81,11 +81,12 @@ One window. The top level holds:
 
 | Setting | What it does | Default |
 | --- | --- | --- |
+| Open at login | Shows what macOS has on file; a pending approval shows "Waiting for approval in System Settings" with Open Login Items; an error shows under it | off |
+| Version | The installed version, with Check for updates (Sparkle; also checks once a day on its own and installs on your say-so) | |
 | Pause when the lid closes | Apps shown as small icon and name chips; paused while the lid is closed, resumed when it opens | Slack, WhatsApp, Discord (when installed) |
 | Keep at full speed | Apps never paused or slowed down during a session | Common terminals, editors, AI apps, agent browsers, Docker, Tailscale, LM Studio, Ollama (when installed) |
 | Durations | The grid's durations, as chips with add and remove (up to 8) | 10m, 30m, 1h, 2h, 4h, 8h, 12h, 24h |
 | Hotspot backup | The saved hotspot, with Change… and Remove (section 6) | not set |
-| Open at login | Shows what macOS has on file; a pending approval shows "Waiting for approval in System Settings" with Open Login Items; an error shows under it | off |
 | Advanced | Collapsed group; remembers whether it was open | collapsed |
 
 **App lists**
@@ -111,7 +112,7 @@ One window. The top level holds:
 | Coding agents | Type "continue" into tmux panes after | 10–900 s | 90 s |
 | | Press Return after typing | on / off | off |
 | | tmux panes | list | empty |
-| About | Version, Check for updates (Sparkle; also checks once a day on its own and installs on your say-so), Show settings file in Finder | | |
+| About | Show settings file in Finder | | |
 
 The end floor always stays below the Low Power Mode floor; moving one into the other pushes it along.
 
