@@ -26,6 +26,9 @@ struct SettingsView: View {
     @State private var showingHotspotSheet = false
     @State private var showingAddDuration = false
     @State private var installed: [InstalledApp] = []
+    /// macOS's "Ask to join hotspots", read on appear and whenever the app
+    /// becomes active (the user may have just changed it).
+    @State private var autoJoin = HotspotAutoJoin.read()
 
     var body: some View {
         Form {
@@ -61,6 +64,7 @@ struct SettingsView: View {
         .onChange(of: manager.config) { refreshWouldFreeze() }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in refreshWouldFreeze() }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in refreshWouldFreeze() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in autoJoin = HotspotAutoJoin.read() }
         .sheet(item: $picker) { list in
             AppPickerSheet(
                 list: list,
@@ -110,10 +114,8 @@ struct SettingsView: View {
 
     private var appsSection: some View {
         Section {
-            appList(.pause, title: "Pause when the lid closes", ids: manager.config.freezeList,
-                    help: "Paused apps stop using battery while the lid is closed, and carry on when you open it.")
-            appList(.fullSpeed, title: "Keep at full speed", ids: manager.config.agentList,
-                    help: "These apps are never paused or slowed down during a session.")
+            appList(.pause, title: "Pause when the lid closes", ids: manager.config.freezeList)
+            appList(.fullSpeed, title: "Keep at full speed", ids: manager.config.agentList)
         } header: {
             Text("Apps")
         }
@@ -121,7 +123,7 @@ struct SettingsView: View {
 
     /// Only apps installed on this Mac are shown; a saved entry for one that
     /// isn't stays in config.json and comes back if the app does.
-    private func appList(_ list: Config.AppList, title: String, ids: [String], help: String) -> some View {
+    private func appList(_ list: Config.AppList, title: String, ids: [String]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.headline)
             FlowLayout(spacing: 6) {
@@ -130,7 +132,6 @@ struct SettingsView: View {
                 }
                 AddChipButton(label: "Add an app to \(title)") { picker = list }
             }
-            Text(help).font(.callout).foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
     }
@@ -157,7 +158,7 @@ struct SettingsView: View {
                         }
                 }
             }
-            Text("The menu's grid shows \u{221E} (no time limit) and up to 7 of these.")
+            Text("Up to 7, shown with \u{221E} in the menu.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         } header: {
@@ -178,7 +179,7 @@ struct SettingsView: View {
                 }
             } else {
                 if manager.config.hotspotBSSIDs.isEmpty, manager.config.hotspotSecurity == nil {
-                    Text("Choose this network again from the list so Insomnia can recognise it.")
+                    Text("Choose it again to finish setup.")
                         .font(.callout)
                         .foregroundStyle(.orange)
                 }
@@ -195,9 +196,19 @@ struct SettingsView: View {
                     Button("Remove", action: removeHotspot)
                 }
             }
+            if case let .off(mode) = autoJoin {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(Self.autoJoinTip(mode))
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button("Open Wi-Fi Settings") { NSWorkspace.shared.open(HotspotAutoJoin.settingsURL) }
+                }
+            }
             if locationPermission.isDenied {
                 HStack {
-                    Text("Location Services is off for Insomnia, so it can't see Wi-Fi names.")
+                    Text("Turn on Location Services to see Wi-Fi names.")
                         .font(.callout)
                         .foregroundStyle(.orange)
                     Spacer()
@@ -207,8 +218,17 @@ struct SettingsView: View {
         } header: {
             Text("Hotspot backup")
         } footer: {
-            Text("Joins this network if your Wi-Fi drops or has no internet during a session.")
+            Text("Joined when Wi-Fi drops during a session.")
         }
+    }
+
+    /// Why "Ask to join hotspots" should be Automatically, for the value it
+    /// has now. Static so the copy can be tested.
+    static func autoJoinTip(_ mode: String?) -> String {
+        if mode == "Never" {
+            return "Set Ask to join hotspots to Automatically. It\u{2019}s set to Never."
+        }
+        return "Set Ask to join hotspots to Automatically. Asking needs someone at the Mac."
     }
 
     private var hotspotStatus: String {
@@ -289,7 +309,7 @@ struct SettingsView: View {
 
     /// Under the mute toggle and in the README. Apple Platform Security,
     /// "Hardware microphone disconnect".
-    static let microphoneNote = "On Mac laptops with Apple silicon or a T2 chip, closing the lid disconnects the built-in microphone in hardware. Recording a meeting with the lid closed needs AirPods or an external mic."
+    static let microphoneNote = "The built-in mic is off while the lid is closed."
 
     private var lidSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -304,9 +324,9 @@ struct SettingsView: View {
                     Button("Dismiss") { manager.dismissLidCloseNotice() }
                 }
             }
-            Toggle("Turn off the display and keyboard light", isOn: bind(\.darkenDisplayOnLidClose))
-            ForEach(manager.darkenRefusals, id: \.self) { reason in
-                Text(reason)
+            Toggle("Turn off display and keyboard light", isOn: bind(\.darkenDisplayOnLidClose))
+            if !manager.darkenRefusals.isEmpty {
+                Text("This Mac doesn\u{2019}t allow it.")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
@@ -317,19 +337,14 @@ struct SettingsView: View {
             Toggle("Low Power Mode", isOn: bind(\.lowPowerOnLidClose))
                 // A floor input: apply it now if the lid is already closed.
                 .onChange(of: manager.config.lowPowerOnLidClose) { manager.services?.reevaluateFloors() }
-            Toggle("Pause Docker when no containers are running", isOn: bind(\.dockerRule))
+            Toggle("Pause Docker when idle", isOn: bind(\.dockerRule))
             Toggle("Pause every other app", isOn: bind(\.freezeAllApps))
-            Text(wouldFreezeText)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if manager.config.freezeAllApps {
+                Text(wouldFreeze.isEmpty ? "Nothing else to pause now" : "Would pause \(wouldFreeze.joined(separator: ", "))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
-    }
-
-    private var wouldFreezeText: String {
-        guard manager.config.freezeAllApps else {
-            return "Full-speed apps, Apple apps, editors, terminals, browsers and meeting apps are never paused this way."
-        }
-        return wouldFreeze.isEmpty ? "Would pause now: nothing else" : "Would pause now: \(wouldFreeze.joined(separator: ", "))"
     }
 
     /// Same planner as the lid-close action, over the apps running now.
@@ -345,9 +360,9 @@ struct SettingsView: View {
                 LabeledContent("Low Power Mode below", value: "\(manager.config.lowPowerFloor)%")
             }
             Stepper(value: endFloor, in: 0...Config.maxEndFloor, step: Config.floorStep) {
-                LabeledContent("End the session below", value: manager.config.endFloor == 0 ? "Off" : "\(manager.config.endFloor)%")
+                LabeledContent("End below", value: manager.config.endFloor == 0 ? "Off" : "\(manager.config.endFloor)%")
             }
-            Toggle("Slow down or end the session when the Mac gets too hot", isOn: bind(\.thermalRules))
+            Toggle("Slow down or end when too hot", isOn: bind(\.thermalRules))
                 .onChange(of: manager.config.thermalRules) { manager.services?.reevaluateFloors() }
         }
     }
@@ -358,10 +373,10 @@ struct SettingsView: View {
             Toggle("Turn off App Nap for these apps", isOn: bind(\.disableAppNapForAgents))
             Text("Coding agents").font(.headline).padding(.top, 6)
             Stepper(value: nudgeSeconds, in: 10...900, step: 10) {
-                LabeledContent("Type \"continue\" into tmux panes after", value: "\(Int(manager.config.nudgeThreshold)) s offline")
+                LabeledContent("Nudge tmux after", value: "\(Int(manager.config.nudgeThreshold)) s offline")
             }
             Toggle("Press Return after typing", isOn: bind(\.tmuxNudgePressesEnter))
-            Text("Only panes you list here and mark with this command are nudged:")
+            Text("Mark each pane with:")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(TmuxNudge.markCommand())
@@ -535,9 +550,7 @@ struct SettingsView: View {
         }
         switch releases.state {
         case .idle:
-            Text("Asks GitHub when you click, and installs nothing. To upgrade, run the installer again.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            EmptyView()
         case .checking:
             EmptyView()
         case let .checked(report):
@@ -545,8 +558,8 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(report.standing == .newerStableAvailable ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 .textSelection(.enabled)
-        case let .failed(reason):
-            Text("Could not check: \(reason)")
+        case .failed:
+            Text("Couldn\u{2019}t check for updates")
                 .font(.caption)
                 .foregroundStyle(.red)
         }
@@ -572,8 +585,8 @@ struct SettingsView: View {
     /// the button that opens Login Items, or a flag macOS no longer honours.
     @ViewBuilder
     private var loginItemNote: some View {
-        if let error = loginItem.error {
-            Text("Login item: \(error)").font(.caption).foregroundStyle(.red)
+        if loginItem.error != nil {
+            Text("Couldn\u{2019}t change Open at login").font(.caption).foregroundStyle(.red)
         } else if loginItem.needsApproval {
             HStack {
                 Text("Waiting for approval in System Settings")
@@ -583,7 +596,7 @@ struct SettingsView: View {
                 Button("Open Login Items") { loginItem.openLoginItems() }
             }
         } else if manager.config.launchAtLogin, !loginItem.isRegistered {
-            Text("Login item: macOS reports it \(loginItem.status.description). Turn the switch on to register it again.")
+            Text("Turned off in System Settings")
                 .font(.caption)
                 .foregroundStyle(.orange)
         }

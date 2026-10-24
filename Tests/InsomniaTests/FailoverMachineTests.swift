@@ -129,7 +129,7 @@ final class NetworkFailoverDriverTests: XCTestCase {
 
         XCTAssertEqual(nudged.value, ["agents:0.0", "agents:0.1"])
         XCTAssertEqual(notifier.posts.count, 1)
-        XCTAssertEqual(notifier.posts[0].body, "Network was down 2m 10s. Nudged 2 tmux panes. Check GUI agents.")
+        XCTAssertEqual(notifier.posts[0].body, "Offline for 2m 10s. Nudged 2 tmux panes.")
         XCTAssertEqual(gaps.value, [130])
         XCTAssertEqual(n.lastGap, 130)
         let log = try String(contentsOf: home.paths.handoffsLog, encoding: .utf8)
@@ -488,7 +488,7 @@ final class NetworkFailoverDriverTests: XCTestCase {
 
         XCTAssertEqual(joiner.calls, [])
         XCTAssertEqual(n.passwordReport?.problem, .unreadable)
-        XCTAssertEqual(n.passwordReport?.problem.menuLine, "Hotspot password needs entering again in Settings")
+        XCTAssertEqual(n.passwordReport?.problem.menuLine, "Hotspot password needs re-entering")
         XCTAssertEqual(notifier.posts.map(\.body), [HotspotPasswordProblem.unreadable.explanation])
         XCTAssertTrue(HotspotPasswordProblem.unreadable.explanation.contains("Enter it again in Settings"))
     }

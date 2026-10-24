@@ -50,8 +50,23 @@ enum HotspotMatcher {
         var bssids: [String]
         var security: String
         var rssi: Int
+        /// False for a network macOS has saved that isn't in the scan: an
+        /// iPhone hotspot usually, which only broadcasts while its Personal
+        /// Hotspot screen is open.
+        var inRange = true
         var id: String { ssid }
         var isSecured: Bool { security != HotspotSecurity.open }
+    }
+
+    /// The scan's rows, then the networks macOS has saved that aren't in
+    /// range, by name. Pure.
+    static func addingSaved(_ rows: [Row], saved: [(ssid: String, security: String)]) -> [Row] {
+        let seen = Set(rows.map(\.ssid))
+        var extra: [String: Row] = [:]
+        for s in saved where !s.ssid.isEmpty && !seen.contains(s.ssid) {
+            extra[s.ssid] = Row(ssid: s.ssid, bssids: [], security: s.security, rssi: Int.min, inRange: false)
+        }
+        return rows + extra.values.sorted { $0.ssid.localizedCaseInsensitiveCompare($1.ssid) == .orderedAscending }
     }
 
     static func rows(_ scan: [ScannedNetwork]) -> [Row] {
@@ -97,6 +112,34 @@ enum HotspotSecurity {
         if password.count > 63 { return "The password is too long. Wi-Fi passwords are at most 63 characters." }
         return nil
     }
+}
+
+/// macOS's own "Ask to join hotspots" setting (System Settings > Wi-Fi).
+/// Only Automatically lets macOS wake and join an iPhone hotspot that isn't
+/// broadcasting, which Insomnia's own join can't do.
+enum HotspotAutoJoin: Equatable, Sendable {
+    case automatic
+    /// "Ask" or "Never", or no value (macOS's default): not automatic.
+    case off(String?)
+
+    static let preferencesFile = URL(fileURLWithPath: "/Library/Preferences/SystemConfiguration/com.apple.airport.preferences.plist")
+    static let key = "AutoHotspotMode"
+
+    /// From the value macOS writes: "Automatic", "Ask", "Never". Pure.
+    static func parse(_ value: String?) -> HotspotAutoJoin {
+        value == "Automatic" ? .automatic : .off(value)
+    }
+
+    /// Reads the setting; the file is readable by any user.
+    static func read(from file: URL = preferencesFile) -> HotspotAutoJoin {
+        guard let data = try? Data(contentsOf: file),
+              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else { return .off(nil) }
+        return parse(plist[key] as? String)
+    }
+
+    /// Opens System Settings at Wi-Fi.
+    static let settingsURL = URL(string: "x-apple.systempreferences:com.apple.wifi-settings-extension")!
 }
 
 /// "Wi-Fi is connected but has no internet": the captive-portal check failed

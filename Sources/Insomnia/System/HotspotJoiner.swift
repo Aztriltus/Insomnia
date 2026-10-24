@@ -92,24 +92,44 @@ enum WiFiScanner {
         CWWiFiClient.shared().interface()?.ssid()
     }
 
-    /// Names of the networks macOS has saved.
-    static func knownSSIDs() -> Set<String> {
+    /// The networks macOS has saved, with their security, whether or not
+    /// they're in range.
+    static func savedNetworks() -> [(ssid: String, security: String)] {
         guard let profiles = CWWiFiClient.shared().interface()?.configuration()?.networkProfiles else { return [] }
-        return Set(profiles.compactMap { ($0 as? CWNetworkProfile)?.ssid })
+        return profiles.compactMap { item in
+            guard let profile = item as? CWNetworkProfile, let ssid = profile.ssid, !ssid.isEmpty else { return nil }
+            return (ssid, security(of: profile.security))
+        }
     }
 
-    /// The password macOS saved for `ssid`. macOS asks for an
-    /// administrator's name and password in its own dialog; Insomnia never
-    /// sees them. nil when cancelled or when macOS has none.
+    /// The same names as `security(of: CWNetwork)` gives a network that
+    /// supports this mode, so a saved profile and a scan agree.
+    static func security(of mode: CWSecurity) -> String {
+        switch mode {
+        case .none, .OWE, .oweTransition: HotspotSecurity.open
+        case .wpaPersonal, .wpaPersonalMixed, .wpa2Personal, .personal, .wpa3Transition: HotspotSecurity.wpaPersonal
+        case .wpa3Personal: HotspotSecurity.wpa3Personal
+        case .wpaEnterprise, .wpaEnterpriseMixed, .wpa2Enterprise, .enterprise, .wpa3Enterprise: HotspotSecurity.enterprise
+        default: HotspotSecurity.other
+        }
+    }
+
+    /// The password macOS saved for `ssid`. Your own keychain is tried
+    /// first, which an iCloud-synced hotspot is usually in; only if it isn't
+    /// there does macOS show its own administrator dialog for the System
+    /// keychain. Insomnia never sees what is typed there. nil when cancelled
+    /// or when macOS has none.
     static func savedPassword(for ssid: String) async -> String? {
         await Task.detached {
-            var password: NSString?
-            let status = CWKeychainFindWiFiPassword(.system, Data(ssid.utf8), &password)
-            if status != errSecSuccess {
-                Log.info("macOS saved Wi-Fi password not available (OSStatus \(status))")
-                return nil
+            for domain in [CWKeychainDomain.user, .system] {
+                var password: NSString?
+                let status = CWKeychainFindWiFiPassword(domain, Data(ssid.utf8), &password)
+                if status == errSecSuccess, let found = password as String?, !found.isEmpty {
+                    return found
+                }
+                Log.info("saved Wi-Fi password not in the \(domain == .user ? "login" : "System") keychain (OSStatus \(status))")
             }
-            return password as String?
+            return nil
         }.value
     }
 }

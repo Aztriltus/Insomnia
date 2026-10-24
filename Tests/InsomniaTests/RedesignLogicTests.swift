@@ -336,3 +336,60 @@ final class ConfigMigrationTests: XCTestCase {
         XCTAssertNoThrow(try decode("{\"defaultPreset\": 14400, \"defaultFocusField\": 9}"))
     }
 }
+
+final class HotspotSetupTests: XCTestCase {
+    func testAutoJoinIsOnOnlyForAutomatic() {
+        XCTAssertEqual(HotspotAutoJoin.parse("Automatic"), .automatic)
+        XCTAssertEqual(HotspotAutoJoin.parse("Ask"), .off("Ask"))
+        XCTAssertEqual(HotspotAutoJoin.parse("Never"), .off("Never"))
+        XCTAssertEqual(HotspotAutoJoin.parse(nil), .off(nil), "no value is macOS's default, which asks")
+    }
+
+    func testAutoJoinIsReadFromTheAirportPreferences() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("com.apple.airport.preferences.plist")
+        for (value, expected) in [("Automatic", HotspotAutoJoin.automatic), ("Never", .off("Never"))] {
+            let data = try PropertyListSerialization.data(fromPropertyList: ["AutoHotspotMode": value, "Version": 7200], format: .binary, options: 0)
+            try data.write(to: file)
+            XCTAssertEqual(HotspotAutoJoin.read(from: file), expected)
+        }
+        try PropertyListSerialization.data(fromPropertyList: ["Version": 7200], format: .xml, options: 0).write(to: file)
+        XCTAssertEqual(HotspotAutoJoin.read(from: file), .off(nil))
+        XCTAssertEqual(HotspotAutoJoin.read(from: dir.appendingPathComponent("missing.plist")), .off(nil))
+    }
+
+    func testTheTipSaysWhyForEachValue() {
+        XCTAssertTrue(SettingsView.autoJoinTip("Never").contains("set to Never"))
+        XCTAssertTrue(SettingsView.autoJoinTip("Ask").contains("needs someone at the Mac"))
+        XCTAssertTrue(SettingsView.autoJoinTip(nil).contains("needs someone at the Mac"))
+        for mode in ["Never", "Ask"] {
+            XCTAssertTrue(SettingsView.autoJoinTip(mode).hasPrefix("Set Ask to join hotspots to Automatically."))
+        }
+    }
+
+    func testSavedNetworksOutOfRangeFollowTheScan() {
+        let scan = HotspotMatcher.rows([ScannedNetwork(ssid: "Home", bssid: "1", security: HotspotSecurity.wpaPersonal, rssi: -50)])
+        let rows = HotspotMatcher.addingSaved(scan, saved: [
+            ("Home", HotspotSecurity.wpaPersonal),
+            ("zara's iPhone", HotspotSecurity.wpaPersonal),
+            ("Cafe", HotspotSecurity.open),
+            ("", HotspotSecurity.open),
+        ])
+        XCTAssertEqual(rows.map(\.ssid), ["Home", "Cafe", "zara's iPhone"])
+        XCTAssertEqual(rows.map(\.inRange), [true, false, false])
+        XCTAssertEqual(rows[2].bssids, [])
+    }
+
+    /// A saved profile and a scan must name the same security, or a hotspot
+    /// saved out of range would never match when it appears.
+    func testSavedProfileSecurityNamesMatchTheScansNames() {
+        XCTAssertEqual(WiFiScanner.security(of: .wpa2Personal), HotspotSecurity.wpaPersonal)
+        XCTAssertEqual(WiFiScanner.security(of: .wpa3Transition), HotspotSecurity.wpaPersonal, "a transition network also supports WPA2, which the scan names first")
+        XCTAssertEqual(WiFiScanner.security(of: .personal), HotspotSecurity.wpaPersonal)
+        XCTAssertEqual(WiFiScanner.security(of: .wpa3Personal), HotspotSecurity.wpa3Personal)
+        XCTAssertEqual(WiFiScanner.security(of: .none), HotspotSecurity.open)
+        XCTAssertEqual(WiFiScanner.security(of: .wpa2Enterprise), HotspotSecurity.enterprise)
+    }
+}

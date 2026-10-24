@@ -52,7 +52,7 @@ final class ReminderScheduler {
     private func fire(endsAt: Date) {
         scheduledFor = nil
         timer = nil
-        let body = "Sleep is restored at \(endsAt.formatted(date: .omitted, time: .shortened)). Add time from the menu bar, or press Add 1 hour."
+        let body = "Ends at \(endsAt.formatted(date: .omitted, time: .shortened))."
         Log.info("reminder: 5 minutes left")
         guard Self.canNotify else {
             Log.info("reminder not posted: not running from an app bundle")

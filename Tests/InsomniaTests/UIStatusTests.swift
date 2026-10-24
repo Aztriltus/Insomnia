@@ -3,44 +3,19 @@ import XCTest
 @testable import Insomnia
 
 final class UIStatusTests: XCTestCase {
+    /// The status item uses macOS's standard square slot and an icon of a
+    /// fixed size, open or closed, with or without the attention dot.
     @MainActor
-    func testStatusHostUsesIntrinsicSizingAndHasAnIdleFittingSize() {
+    func testTheStatusItemIsTheStandardSquareInEveryState() {
+        _ = NSApplication.shared
         let harness = Harness()
         defer { harness.home.destroy() }
-        let root = StatusRootView(
-            model: MenuBarModel(),
-            manager: harness.makeManager(),
-            onWidthChange: { _ in }
-        )
-
-        let host = StatusItemController.makeHostingView(root)
-
-        XCTAssertTrue(host.sizingOptions.contains(.intrinsicContentSize))
-        XCTAssertGreaterThan(host.fittingSize.width, 0)
-        XCTAssertGreaterThan(host.fittingSize.height, 0)
-    }
-
-    /// The status item is the eye alone: idle, starting, running with a
-    /// time limit and running without one all have the same width.
-    @MainActor
-    func testTheStatusItemNeverChangesWidth() async {
-        let harness = Harness()
-        defer { harness.home.destroy() }
-        let manager = harness.makeManager()
-        let model = MenuBarModel()
-        func width() -> CGFloat {
-            StatusItemController.makeHostingView(StatusRootView(model: model, manager: manager, onWidthChange: { _ in })).fittingSize.width
+        let controller = StatusItemController(manager: harness.makeManager(), status: PlaceholderStatus(), showSettings: {})
+        XCTAssertEqual(controller.statusItemLength, NSStatusItem.squareLength)
+        for (open, attention) in [(false, false), (true, false), (false, true), (true, true)] {
+            XCTAssertEqual(StatusIcon.image(open: open, attention: attention).size, StatusIcon.size)
         }
-        let idle = width()
-        model.phase = .starting
-        XCTAssertEqual(width(), idle)
-        await manager.start(duration: 26 * 3600)
-        model.phase = .running
-        XCTAssertEqual(width(), idle)
-        await manager.removeTimeLimit()
-        XCTAssertEqual(width(), idle)
-        model.needsAttention = true
-        XCTAssertEqual(width(), idle, "the attention dot sits on the eye")
+        XCTAssertTrue(StatusIcon.image(open: true, attention: false).isTemplate, "follows the menu bar's light or dark look")
     }
 
     /// The blink was over in a handful of frames and barely read. It has to
@@ -185,7 +160,7 @@ final class UIStatusTests: XCTestCase {
             [.throttled([Self.chrome]), .warning, .warning, .separator, .settings, .quit]
         )
         XCTAssertEqual(items[1], StatusMenu.Item(
-            title: "Hotspot password needs entering again in Settings",
+            title: "Hotspot password needs re-entering",
             kind: .warning
         ))
         XCTAssertEqual(
@@ -198,12 +173,12 @@ final class UIStatusTests: XCTestCase {
     /// Settings notice except for a missing item, where the empty field is
     /// the notice.
     func testHotspotPasswordProblemCopy() {
-        XCTAssertEqual(HotspotPasswordProblem.missing.menuLine, "Hotspot password missing. Add it in Settings")
+        XCTAssertEqual(HotspotPasswordProblem.missing.menuLine, "Hotspot password missing")
         XCTAssertNil(HotspotPasswordProblem.missing.settingsNotice)
-        XCTAssertTrue(HotspotPasswordProblem.unreadable.settingsNotice?.contains("Enter it again and save") ?? false)
+        XCTAssertEqual(HotspotPasswordProblem.unreadable.settingsNotice, "Can\u{2019}t read the saved password. Choose the network again.")
         XCTAssertTrue(HotspotPasswordProblem.unreadable.explanation.hasSuffix("Enter it again in Settings."))
-        XCTAssertEqual(HotspotPasswordProblem.error("keychain: boom").menuLine, "Hotspot password needs entering again in Settings", "the raw error stays out of the menu")
-        XCTAssertEqual(HotspotPasswordProblem.error("keychain: boom").settingsNotice, "The saved password can't be read: keychain: boom")
+        XCTAssertEqual(HotspotPasswordProblem.error("keychain: boom").menuLine, "Hotspot password needs re-entering", "the raw error stays out of the menu")
+        XCTAssertEqual(HotspotPasswordProblem.error("keychain: boom").settingsNotice, "Can\u{2019}t read the saved password. Choose the network again.", "the raw error stays out of Settings")
         XCTAssertEqual(KeychainError(status: errSecAuthFailed).problem, .unreadable)
         XCTAssertEqual(KeychainError(status: errSecInteractionNotAllowed).problem, .unreadable)
         XCTAssertEqual(KeychainError(status: errSecInvalidOwnerEdit).problem, .unreadable)

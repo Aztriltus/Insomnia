@@ -1183,7 +1183,7 @@ final class LidActionsTests: XCTestCase {
         XCTAssertFalse(h.audio.muted, "the speakers are not touched")
         let post = try XCTUnwrap(h.notifier.posts.last)
         XCTAssertEqual(post.title, "Session ended")
-        XCTAssertEqual(post.body, "Insomnia quit. Sleep is back to normal. USB Headset was not connected, so it is still muted. Insomnia restores its volume when it reconnects while Insomnia is running, or at the next launch.")
+        XCTAssertEqual(post.body, "Insomnia quit. USB Headset is still muted until it reconnects.")
         XCTAssertFalse(h.notifier.posts.contains { $0.title == SessionManager.incompleteTitle })
         XCTAssertEqual(m.outputsWaitingForRestore.map(\.withoutSaveID), [Self.headsetSaved])
 

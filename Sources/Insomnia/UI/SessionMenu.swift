@@ -46,8 +46,11 @@ enum SessionMenu {
     }
 
     enum Item: Equatable, Sendable {
-        /// The first line: "Inactive", "Active until 6:40 PM", …
-        case status(String, active: Bool)
+        /// The first row, like the Battery menu's: the eye, the state in
+        /// bold, and a grey value on the right ("until 6:40 PM").
+        case header(title: String, value: String?, eyeOpen: Bool)
+        /// A grey section heading, like "Energy Mode".
+        case section(String)
         /// "Couldn't start. Try again.", drawn as a warning.
         case failure(String)
         /// `selectedTitle` replaces the highlighted cell's label: the time
@@ -59,7 +62,9 @@ enum SessionMenu {
     }
 
     static let inactiveTitle = "Inactive"
+    static let activeTitle = "Active"
     static let startingTitle = "Starting\u{2026}"
+    static let gridSection = "Keep awake for"
     static let endSessionTitle = "End session"
 
     static func cells(_ durations: [TimeInterval]) -> [Cell] {
@@ -84,17 +89,18 @@ enum SessionMenu {
         let cells = cells(durations)
         switch state {
         case .idle:
-            return [.status(inactiveTitle, active: false), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true)]
+            return [.header(title: inactiveTitle, value: nil, eyeOpen: false), .section(gridSection), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true)]
         case .starting:
-            return [.status(startingTitle, active: true), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: false)]
+            return [.header(title: startingTitle, value: nil, eyeOpen: true), .section(gridSection), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: false)]
         case .failed:
-            return [.status(inactiveTitle, active: false), .failure(failureLine), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true)]
+            return [.header(title: inactiveTitle, value: nil, eyeOpen: false), .failure(failureLine), .section(gridSection), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true)]
         case .openEnded:
-            return [.status("Active, no time limit", active: true), .grid(cells: cells, selected: .openEnded, selectedTitle: CountdownFormat.openEnded, enabled: true)]
+            return [.header(title: activeTitle, value: "No time limit", eyeOpen: true), .section(gridSection), .grid(cells: cells, selected: .openEnded, selectedTitle: CountdownFormat.openEnded, enabled: true)]
         case let .running(endsAt, _):
             let selected = selected(state).flatMap { cells.contains($0) ? $0 : nil }
             var out: [Item] = [
-                .status("Active " + untilPhrase(endsAt: endsAt, now: now, calendar: calendar, locale: locale), active: true),
+                .header(title: activeTitle, value: untilPhrase(endsAt: endsAt, now: now, calendar: calendar, locale: locale), eyeOpen: true),
+                .section(gridSection),
                 .grid(cells: cells, selected: selected, selectedTitle: CountdownFormat.text(remaining: endsAt.timeIntervalSince(now)), enabled: true),
             ]
             if selected == nil { out.append(.endSession) }

@@ -30,7 +30,7 @@ It is meant for a Mac on a stable, ventilated surface, never in a closed bag.
 
 ### The icon
 
-The status item is the eye alone. Its width never changes, so nothing else in the menu bar moves.
+The status item is the eye, as the button's image in macOS's standard square slot, so it has the same width and vertical position as the system's own icons.
 
 | State | Menu bar shows | VoiceOver reads |
 | --- | --- | --- |
@@ -38,36 +38,36 @@ The status item is the eye alone. Its width never changes, so nothing else in th
 | Starting or running | Open eye | "Insomnia, starting", "Insomnia, 5 hours 12 minutes left" or "Insomnia, awake with no time limit" |
 | Something needs attention | The eye with a small orange dot | adds ", needs attention" |
 
-- The time left is in the menu's first line ("Active until 6:40 PM"), not in the menu bar.
-- The eye blinks open and closed. With Reduce Motion on, it crossfades instead.
+The time left is in the menu, not the menu bar.
 
 ### The menu
 
-Left or right click opens the same menu.
+Left or right click opens the same menu. It follows the layout of macOS's Battery menu: standard menu text throughout, a bold first row, grey section headings and separators between sections.
 
 ```
-Active until 6:40 PM            ← not clickable: Inactive, Active until …, Active, no time limit
-┌────┬────┬────┬────┐
-│ ∞  │10m │30m │[1h]│           ← the running session's cell is highlighted
-├────┼────┼────┼────┤
-│ 2h │ 4h │ 8h │12h │
-└────┴────┴────┴────┘
-Throttled                       ← only when a browser is throttled
-[Chrome icon]
-─────────────
-Settings…                ⌘,
-Quit Insomnia            ⌘Q
+(eye) Active          until 6:40 PM    <- the eye is open or closed, as in the menu bar
+Couldn't start. Try again.             <- only what needs attention, in orange
+---------------------------------
+Keep awake for                         <- grey heading
+[ ∞  ] [ 10m ] [ 30m ]
+[ 1h ] [ 2h  ] [ 4h  ]
+[ 8h ] [ 12h ]
+---------------------------------
+Throttled                              <- only when a browser is throttled
+(Chrome icon)
+---------------------------------
+Settings…                       ⌘,
+Quit Insomnia                   ⌘Q
 ```
 
-- **The first line** says whether Insomnia is keeping the Mac awake: "Inactive", or, with a dot in the accent colour in front, "Starting…", "Active until 6:40 PM" (or "Sat 6:40 PM", or "Oct 30, 6:40 PM" when further out), or "Active, no time limit". It isn't clickable.
-- **The grid** is ∞ (no time limit) and the durations from Settings, 10m, 30m, 1h, 2h, 4h, 8h and 12h by default, four to a row. The menu stays open after a click; the first line and the highlight update in place.
+- **The first row** shows the eye (closed when inactive, open when active, as in the menu bar), the state in bold ("Inactive", "Starting…", "Active"), and on the right in grey, "until 6:40 PM" ("until Sat 6:40 PM", "until Oct 30, 6:40 PM" further out) or "No time limit". It isn't clickable.
+- **Under it**, only lines that need attention, in orange: "Couldn't start. Try again." (until the next start, or until the menu has been opened and closed once; the reason is in the log), "Not keeping the Mac awake", "Sleep is still turned off", "Hotspot password missing", "Hotspot password needs re-entering", "Something went wrong", "A power command is stuck", "Another app has turned sleep off", "Couldn't relaunch the browser", and "Headphones is still muted" with "Stop waiting for Headphones".
+- **Keep awake for** is a grid of ∞ (no time limit) and the durations from Settings (10m, 30m, 1h, 2h, 4h, 8h and 12h by default), three to a row. The menu stays open after a click and updates in place.
   - With nothing running, clicking a cell starts that session.
-  - While a session runs, its cell is filled in the accent colour and its label counts down the time left ("1h" becomes "59m", "58m", …; ∞ stays ∞). Clicking another cell switches to it: the session then ends that long from now, or has no time limit for ∞. Clicking the running cell ends the session, and its label goes back to normal.
+  - While a session runs, its cell is filled in the accent colour and its label counts down the time left ("2h" becomes "1h 59m", …; ∞ stays ∞). Clicking another cell switches to it: the session then ends that long from now, or has no time limit for ∞. Clicking the running cell ends the session and its label goes back to normal.
   - While starting, the grid is greyed out.
-  - A running session with no matching cell (one a durations change has removed, say) gets an End session item under the grid.
-- **Start failed:** "Couldn't start. Try again." shows under the first line until the next successful start, or until the menu has been opened and closed once. The reason is in the log.
-- **Throttled:** a throttled browser shows as its icon, with no label, under a "Throttled" heading. Clicking the icon offers "Relaunch unthrottled" and "Advanced settings…".
-- **Other lines** show only when something needs attention, in plain words: "Not keeping the Mac awake", "Sleep is still turned off", "Hotspot password missing. Add it in Settings", "Hotspot password needs entering again in Settings", "Something went wrong. Details are in the log", "A power command is stuck", "Another app has turned sleep off", "Couldn't relaunch the browser", and "Headphones is still muted" with "Stop waiting for Headphones". No status or diagnostic lines are shown when all is well.
+  - A running session with no matching cell gets an End session item under the grid.
+- **Throttled:** each throttled browser's icon, with no label. Clicking one offers "Relaunch unthrottled" and "Advanced settings…".
 - **Quit** undoes the session first, and refuses while a change is still waiting to be undone.
 
 ### Durations
@@ -144,14 +144,16 @@ During a session only. Without a session, the lid does nothing special.
 **Setup never joins the network**, so Wi-Fi isn't interrupted.
 
 1. Change… opens a sheet. Without Location Services access, the sheet asks for it first ("macOS only shows Wi-Fi names to apps with Location Services. Insomnia never reads your location."), with Allow, or Open Location Services if it was denied.
-2. A list of nearby networks, refreshed every 10 seconds and on Rescan, shows name, signal, a lock for secured networks, "Connected" and "Saved on this Mac". Same-name networks show as one row.
-3. Under it: "Don't see your iPhone? On the iPhone, open Settings > Personal Hotspot and keep that screen open while you choose."
+2. A list of nearby networks, refreshed every 10 seconds and on Rescan, shows name, signal, a lock for secured networks, "Connected" and "Saved". Same-name networks show as one row. Below them come the networks macOS has saved that aren’t in range, marked "Not in range": usually the iPhone hotspot, which only broadcasts while its Personal Hotspot screen is open. They can be chosen too; Insomnia records the hotspot’s hardware address the first time it sees it.
+3. Under it: "Not listed? Open Personal Hotspot on your iPhone."
 4. Choosing a network:
    - Open network: Save.
-   - Secured and saved on this Mac: Use saved password, which shows macOS's own administrator dialog, then copies the password; cancelling falls back to typing it.
+   - Secured and saved on this Mac: Use saved password, which looks in your keychain first (where an iCloud-synced hotspot’s password usually is) and only then shows macOS’s own administrator dialog; cancelling falls back to typing it.
    - Otherwise: type the password and Save. It must be 8 to 63 characters.
 5. The saved row shows "Not tried yet", "Worked on Oct 23", or "Password didn't work on Oct 23", with Change… and Remove.
 6. **Planned:** a **Try now** button that joins on purpose, after warning that Wi-Fi drops for a few seconds, then returns to the previous network.
+
+**macOS’s own auto-join.** Only macOS can wake an iPhone hotspot that isn’t broadcasting, and only when System Settings > Wi-Fi > Ask to join hotspots is Automatically (`AutoHotspotMode` in the system Wi-Fi preferences). When it’s Ask or Never, Settings says "Set Ask to join hotspots to Automatically." with the reason and an Open Wi-Fi Settings button: Ask waits for an answer nobody gives with the lid closed.
 
 **Failover**, during a session only, starts when Wi-Fi drops for 5 seconds, or stays connected with no internet for three checks 10 seconds apart. Insomnia joins the saved network, recognised by its hardware address first and its name second, retrying after 5, 10, 20 and 30 seconds, then every 30 seconds. A rejected password sends one notification ("The hotspot password didn't work. Update it in Settings.") and stops retries until the password changes.
 

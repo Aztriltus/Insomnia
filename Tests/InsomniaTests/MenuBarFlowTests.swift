@@ -23,42 +23,60 @@ final class SessionMenuTests: XCTestCase {
         XCTAssertEqual(cells.map(\.title), ["\u{221E}", "10m", "30m", "1h", "2h", "4h", "8h", "12h"])
     }
 
-    func testIdleIsAnInactiveLineAndTheGridWithNothingHighlighted() {
-        XCTAssertEqual(items(.idle), [.status("Inactive", active: false), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true)])
-    }
+    let section = SessionMenu.Item.section("Keep awake for")
 
-    func testStartingDisablesTheGrid() {
-        XCTAssertEqual(items(.starting), [.status("Starting\u{2026}", active: true), .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: false)])
-    }
-
-    func testAFailedStartSaysWhyUnderTheInactiveLine() {
-        XCTAssertEqual(items(.failed), [
-            .status("Inactive", active: false),
-            .failure("Couldn\u{2019}t start. Try again."),
+    func testIdleIsAClosedEyeInactiveAndTheGridWithNothingHighlighted() {
+        XCTAssertEqual(items(.idle), [
+            .header(title: "Inactive", value: nil, eyeOpen: false),
+            section,
             .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true),
         ])
     }
 
-    func testRunningHighlightsTheChosenCell() {
+    func testStartingOpensTheEyeAndDisablesTheGrid() {
+        XCTAssertEqual(items(.starting), [
+            .header(title: "Starting\u{2026}", value: nil, eyeOpen: true),
+            section,
+            .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: false),
+        ])
+    }
+
+    func testAFailedStartSaysSoUnderTheHeader() {
+        XCTAssertEqual(items(.failed), [
+            .header(title: "Inactive", value: nil, eyeOpen: false),
+            .failure("Couldn\u{2019}t start. Try again."),
+            section,
+            .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true),
+        ])
+    }
+
+    /// The header says until when; the running cell says how long, so the
+    /// time left isn't shown twice.
+    func testRunningHighlightsTheChosenCellAndTheHeaderSaysUntilWhen() {
         let out = items(.running(endsAt: now.addingTimeInterval(3600), choice: 3600))
-        XCTAssertEqual(out.count, 2)
-        XCTAssertEqual(out[1], .grid(cells: cells, selected: .duration(3600), selectedTitle: "1h", enabled: true), "the running cell shows the time left")
-        guard case let .status(text, active) = out[0] else { return XCTFail("\(out)") }
-        XCTAssertTrue(active)
-        XCTAssertTrue(text.hasPrefix("Active until "), text)
+        XCTAssertEqual(out.count, 3)
+        guard case let .header(title, value, eyeOpen) = out[0] else { return XCTFail("\(out)") }
+        XCTAssertEqual(title, "Active")
+        XCTAssertTrue(eyeOpen)
+        XCTAssertTrue(value?.hasPrefix("until ") ?? false, "\(String(describing: value))")
+        XCTAssertEqual(out[2], .grid(cells: cells, selected: .duration(3600), selectedTitle: "1h", enabled: true))
     }
 
     /// The running cell counts down from its own label, and goes back to it
     /// once the session ends.
     func testTheRunningCellCountsDown() {
         let later = items(.running(endsAt: now.addingTimeInterval(43 * 60 + 5), choice: 3600))
-        XCTAssertEqual(later[1], .grid(cells: cells, selected: .duration(3600), selectedTitle: "44m", enabled: true))
-        XCTAssertEqual(items(.idle)[1], .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true))
+        XCTAssertEqual(later[2], .grid(cells: cells, selected: .duration(3600), selectedTitle: "44m", enabled: true))
+        XCTAssertEqual(items(.idle)[2], .grid(cells: cells, selected: nil, selectedTitle: nil, enabled: true))
         XCTAssertEqual(cells.first { $0 == .duration(3600) }?.title, "1h")
     }
 
     func testANoTimeLimitSessionHighlightsInfinity() {
-        XCTAssertEqual(items(.openEnded), [.status("Active, no time limit", active: true), .grid(cells: cells, selected: .openEnded, selectedTitle: "\u{221E}", enabled: true)])
+        XCTAssertEqual(items(.openEnded), [
+            .header(title: "Active", value: "No time limit", eyeOpen: true),
+            section,
+            .grid(cells: cells, selected: .openEnded, selectedTitle: "\u{221E}", enabled: true),
+        ])
     }
 
     /// With nothing highlighted, clicking can't end it, so End session shows.
@@ -222,7 +240,7 @@ final class MenuBarFlowTests: XCTestCase {
         let second = h.makeManager()
         await second.reconcile()
         XCTAssertFalse(second.isActive)
-        XCTAssertTrue(h.notifier.posts.contains { $0.body.contains("couldn't keep the session going") }, "\(h.notifier.posts)")
+        XCTAssertTrue(h.notifier.posts.contains { $0.body == "Insomnia stopped running." }, "\(h.notifier.posts)")
     }
 
     @MainActor

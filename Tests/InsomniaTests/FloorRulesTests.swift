@@ -258,8 +258,7 @@ final class FloorRuleDriverTests: XCTestCase {
         XCTAssertEqual(h.guardFake.calls.last, "disablesleep 0")
         XCTAssertEqual(h.notifier.posts.last?.title, "Session ended")
         let body = try XCTUnwrap(h.notifier.posts.last?.body)
-        XCTAssertTrue(body.contains("could not be read"), body)
-        XCTAssertTrue(body.contains("10%"), body)
+        XCTAssertEqual(body, "Couldn\u{2019}t read the battery.")
     }
 
     func testThermalCriticalEndsSession() async throws {
@@ -271,7 +270,7 @@ final class FloorRuleDriverTests: XCTestCase {
         XCTAssertFalse(m.isActive)
         XCTAssertEqual(try h.store.loadState(), RuntimeState.clean)
         XCTAssertTrue(h.guardFake.calls.contains("lowpowermode 0"))
-        XCTAssertTrue(h.notifier.posts.last?.body.contains("critical") ?? false)
+        XCTAssertEqual(h.notifier.posts.last?.body, "Your Mac got too hot.")
     }
 
     func testNoSessionDoesNothing() async throws {
@@ -532,7 +531,7 @@ final class FloorRuleDriverTests: XCTestCase {
         await driver.run(battery: .percent(80), isCharging: false, thermal: .fair, lidClosed: false)
         XCTAssertFalse(h.guardFake.lowPowerOn)
         XCTAssertEqual(h.notifier.posts.last?.title, "Low Power Mode off")
-        XCTAssertEqual(h.notifier.posts.last?.body, "Back above the floor.")
+        XCTAssertEqual(h.notifier.posts.last?.body, "Battery recovered.")
     }
 
     /// Flipping the lid option while the lid is closed takes effect on the

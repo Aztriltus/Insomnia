@@ -1,16 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// Owns the NSStatusItem: the eye, at one fixed width. Any click on it opens
+/// Owns the NSStatusItem: the eye as the button's image, in the standard
+/// square slot, so macOS sizes and centres it like any other status icon. Any click on it opens
 /// one native menu (`SessionMenu`'s first line and grid, then `StatusMenu`'s
 /// lines, Settings and Quit). The menu stays open while a grid cell is used,
 /// and its first line and highlight update in place.
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
-    /// Builds the width writer over `apply` (which sets the item's length);
-    /// tests inject one that records every write.
-    typealias WidthWriterFactory = @MainActor (_ apply: @escaping (CGFloat) -> Void) -> StatusWidthWriter
-
     let manager: SessionManager
     let status: any StatusSource
     let model = MenuBarModel()
@@ -18,20 +15,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// Opens the settings window. Injected because the window is owned by the
     /// app delegate, which outlives any one status item.
     private let showSettings: () -> Void
-    private let makeWidthWriter: WidthWriterFactory?
     /// Asks before a browser is quit for a relaunch; true means go ahead.
     /// Injected so tests never see the NSAlert.
     private let confirmRelaunch: @MainActor (String) -> Bool
     private let clock: @Sendable () -> Date
 
     private let statusItem: NSStatusItem
-    private var hostingView: StatusHostingView?
-    private var widthWriter: StatusWidthWriter?
-    private(set) var widthTarget: CGFloat = 0
-    /// The menu while it is open, and how many items at its top belong to
-    /// the session part, which is rebuilt in place when the state changes.
+    /// The menu while it is open; rebuilt in place when the state changes.
     private var openMenu: NSMenu?
-    private var sessionItemCount = 0
     /// A throttled browser's icon was clicked in the open menu; its own
     /// menu opens once that one has closed.
     private var pendingThrottled: ThrottledBrowser?
@@ -44,22 +35,20 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         manager: SessionManager,
         status: any StatusSource,
         showSettings: @escaping () -> Void,
-        makeWidthWriter: WidthWriterFactory? = nil,
         confirmRelaunch: (@MainActor (String) -> Bool)? = nil,
         clock: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.manager = manager
         self.status = status
         self.showSettings = showSettings
-        self.makeWidthWriter = makeWidthWriter
         self.confirmRelaunch = confirmRelaunch ?? Self.askBeforeRelaunch
         self.clock = clock
         Self.seedPreferredPositionIfNeeded()
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.autosaveName = Self.autosaveName
         statusItem.behavior = [.terminationOnRemoval]
         super.init()
-        installHostingView()
+        installButton()
         observeManager()
         managerChanged()
         // The throttled-browser scan otherwise first runs when the menu
@@ -87,40 +76,37 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         defaults.set(40, forKey: key)
     }
 
-    private func installHostingView() {
+    private func installButton() {
         guard let button = statusItem.button else { return }
-        let apply: (CGFloat) -> Void = { [statusItem] width in statusItem.length = width }
-        widthWriter = makeWidthWriter?(apply) ?? StatusWidthWriter(apply: apply)
-        let root = StatusRootView(model: model, manager: manager) { [weak self] w in self?.retargetWidth(w) }
-        let host = Self.makeHostingView(root)
-        host.onClick = { [weak self] in self?.showMenu() }
-        host.translatesAutoresizingMaskIntoConstraints = true
-        host.autoresizingMask = [.height]
-        host.frame = NSRect(x: 0, y: 0, width: 0, height: button.bounds.height)
-        button.addSubview(host)
-        button.title = ""
-        button.image = nil
-        (button.cell as? NSButtonCell)?.highlightsBy = []
-        hostingView = host
-        host.frame.size.width = max(widthTarget, host.fittingSize.width.rounded(.up), 24)
-        retargetWidth(host.fittingSize.width)
+        button.target = self
+        button.action = #selector(buttonPressed)
+        button.sendAction(on: [.leftMouseDown, .rightMouseDown])
+        updateIcon()
     }
 
-    /// Centralizes the AppKit/SwiftUI boundary so its sizing contract can be
-    /// regression-tested without a live menu bar.
-    static func makeHostingView(_ root: StatusRootView) -> StatusHostingView {
-        let host = StatusHostingView(rootView: root)
-        host.sizingOptions = [.intrinsicContentSize]
-        return host
+    @objc private func buttonPressed() {
+        showMenu()
     }
 
-    /// The eye's width, written once: it never changes after that.
-    private func retargetWidth(_ width: CGFloat) {
-        let w = max(width.rounded(.up), 24)
-        guard w != widthTarget else { return }
-        widthTarget = w
-        if let host = hostingView { host.frame.size.width = w }
-        widthWriter?.write(w)
+    /// The width macOS gives the item: the standard square slot, whatever
+    /// the state.
+    var statusItemLength: CGFloat { statusItem.length }
+
+    /// Open while a session runs or starts, closed otherwise; with an orange
+    /// dot when something in the menu needs attention.
+    private func updateIcon() {
+        guard let button = statusItem.button else { return }
+        let open = manager.isActive || model.phase == .starting
+        let attention = model.needsAttention || model.startFailure
+        button.image = StatusIcon.image(open: open, attention: attention)
+        var label = "Insomnia"
+        if model.phase == .starting {
+            label += ", starting"
+        } else if let s = manager.session {
+            label += s.openEnded ? ", awake with no time limit" : ", \(CountdownFormat.spoken(remaining: s.remaining(at: clock()))) left"
+        }
+        if attention { label += ", needs attention" }
+        button.setAccessibilityLabel(label)
     }
 
     // MARK: Manager observation
@@ -158,6 +144,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         } else if model.phase == .running {
             model.phase = .idle
         }
+        updateIcon()
         refreshOpenMenu()
     }
 
@@ -180,28 +167,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.delegate = self
-        let session = SessionMenu.items(state: menuState, durations: manager.config.durations, now: clock())
-        for item in session {
-            menu.addItem(menuItem(item))
-        }
-        sessionItemCount = session.count
-        menu.addItem(.separator())
-        let tail = StatusMenu.menu(
-            Self.menuItems(manager: manager, status: status),
-            target: self,
-            settings: #selector(menuOpenSettings),
-            quit: #selector(menuQuit),
-            relaunchBrowser: #selector(menuRelaunchBrowser(_:)),
-            stopWaitingForOutput: #selector(menuStopWaitingForOutput(_:)),
-            throttledTapped: { [weak self] browser in
-                // Shown once this menu has closed: one menu at a time.
-                self?.pendingThrottled = browser
-            }
-        )
-        for item in tail.items {
-            tail.removeItem(item)
-            menu.addItem(item)
-        }
+        populate(menu)
         openMenu = menu
         present(menu, from: button)
         openMenu = nil
@@ -211,18 +177,69 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
     }
 
-    /// Rebuilds the session part of the open menu (the first line, the
-    /// grid and End session) for the state now. The menu stays open.
+    /// Fills the menu in the Battery menu's order: the eye and the state,
+    /// anything that needs attention under it, then a section for the grid,
+    /// a section for throttled browsers, and Settings and Quit, with a
+    /// separator between each.
+    private func populate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let session = SessionMenu.items(state: menuState, durations: manager.config.durations, now: clock())
+        let lines = Self.menuItems(manager: manager, status: status)
+        var throttled: [ThrottledBrowser] = []
+        // The header block: the first row, a refused start, then warnings.
+        for item in session.prefix(while: { if case .section = $0 { return false } else { return true } }) {
+            menu.addItem(menuItem(item))
+        }
+        for line in lines {
+            switch line.kind {
+            case .info, .warning:
+                let entry = NSMenuItem(title: line.title, action: nil, keyEquivalent: "")
+                entry.isEnabled = false
+                entry.attributedTitle = NSAttributedString(string: line.title, attributes: [
+                    .font: NSFont.menuFont(ofSize: 0),
+                    .foregroundColor: line.kind == .warning ? NSColor.systemOrange : NSColor.secondaryLabelColor,
+                ])
+                menu.addItem(entry)
+            case let .stopWaitingForOutput(waiting):
+                let entry = NSMenuItem(title: line.title, action: #selector(menuStopWaitingForOutput(_:)), keyEquivalent: "")
+                entry.target = self
+                entry.representedObject = waiting
+                menu.addItem(entry)
+            case let .throttled(browsers):
+                throttled = browsers
+            case .separator, .settings, .quit, .relaunchBrowser:
+                break
+            }
+        }
+        // The grid section.
+        menu.addItem(.separator())
+        for item in session.drop(while: { if case .section = $0 { return false } else { return true } }) {
+            menu.addItem(menuItem(item))
+        }
+        // Throttled browsers.
+        if !throttled.isEmpty {
+            menu.addItem(.separator())
+            menu.addItem(.sectionHeader(title: StatusMenu.throttledTitle))
+            let row = NSMenuItem()
+            row.view = ThrottledAppsView(browsers: throttled, width: DurationGridView.width) { [weak self] browser in
+                // Shown once this menu has closed: one menu at a time.
+                self?.pendingThrottled = browser
+            }
+            menu.addItem(row)
+        }
+        menu.addItem(.separator())
+        let settings = NSMenuItem(title: StatusMenu.settingsTitle, action: #selector(menuOpenSettings), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+        let quit = NSMenuItem(title: StatusMenu.quitTitle, action: #selector(menuQuit), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+    }
+
+    /// Rebuilds the open menu for the state now. It stays open.
     private func refreshOpenMenu() {
         guard let menu = openMenu else { return }
-        for _ in 0..<min(sessionItemCount, menu.items.count) {
-            menu.removeItem(at: 0)
-        }
-        let session = SessionMenu.items(state: menuState, durations: manager.config.durations, now: clock())
-        for (i, item) in session.enumerated() {
-            menu.insertItem(menuItem(item), at: i)
-        }
-        sessionItemCount = session.count
+        populate(menu)
     }
 
     /// Opens `menu` where macOS puts a status item's menu, under the item
@@ -279,27 +296,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private func menuItem(_ item: SessionMenu.Item) -> NSMenuItem {
         switch item {
-        case let .status(text, active):
-            let entry = NSMenuItem(title: text, action: nil, keyEquivalent: "")
-            entry.isEnabled = false
-            let title = NSMutableAttributedString()
-            if active {
-                // A dot in the accent colour: something is running.
-                title.append(NSAttributedString(string: "\u{25CF} ", attributes: [
-                    .font: NSFont.menuFont(ofSize: 0),
-                    .foregroundColor: NSColor.controlAccentColor,
-                ]))
-            }
-            title.append(NSAttributedString(string: text, attributes: [
-                .font: NSFont.menuFont(ofSize: 0).bold,
-                .foregroundColor: active ? NSColor.labelColor : NSColor.secondaryLabelColor,
-            ]))
-            entry.attributedTitle = title
+        case let .header(title, value, eyeOpen):
+            let entry = NSMenuItem()
+            entry.view = MenuHeaderView(title: title, value: value, eyeOpen: eyeOpen, width: DurationGridView.width)
             return entry
+        case let .section(title):
+            return .sectionHeader(title: title)
         case let .failure(text):
             let entry = NSMenuItem(title: text, action: nil, keyEquivalent: "")
             entry.isEnabled = false
-            entry.attributedTitle = NSAttributedString(string: text, attributes: [.font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize), .foregroundColor: NSColor.systemOrange])
+            entry.attributedTitle = NSAttributedString(string: text, attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.systemOrange])
             return entry
         case let .grid(cells, selected, selectedTitle, enabled):
             let entry = NSMenuItem()
@@ -318,6 +324,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         // A start failure is shown until the menu has been seen once.
         if model.startFailure, !manager.isActive, model.phase == .idle {
             model.startFailure = false
+            updateIcon()
         }
     }
 
@@ -371,6 +378,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         guard !manager.isActive, model.phase != .starting else { return }
         model.startFailure = false
         model.phase = .starting
+        updateIcon()
         refreshOpenMenu()
         Task { @MainActor in
             switch choice {
@@ -383,6 +391,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
                 model.phase = .idle
                 model.startFailure = true
             }
+            updateIcon()
             refreshOpenMenu()
         }
     }
@@ -409,7 +418,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             // A report about an SSID edited away since is not shown.
             hotspotWarning: status.hotspotPasswordReport?.problem(for: manager.config.hotspotSSID)?.menuLine,
             // A refused start has its own line at the top of the menu.
-            error: manager.isActive && manager.lastError != nil ? "Something went wrong. Details are in the log" : nil,
+            error: manager.isActive && manager.lastError != nil ? "Something went wrong" : nil,
             commandRunning: manager.commandWarning == nil ? nil : "A power command is stuck",
             foreignSleep: manager.foreignSleepWarning == nil ? nil : "Another app has turned sleep off",
             outputsWaiting: manager.outputsWaitingForRestore,
@@ -452,23 +461,5 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func menuOpenSettings() {
         showSettings()
-    }
-}
-
-private extension NSFont {
-    var bold: NSFont { NSFontManager.shared.convert(self, toHaveTrait: .boldFontMask) }
-}
-
-/// The SwiftUI host covers the status bar button, so clicks are caught here:
-/// left, right and ctrl-click all open the menu.
-final class StatusHostingView: NSHostingView<StatusRootView> {
-    var onClick: (() -> Void)?
-
-    override func rightMouseDown(with event: NSEvent) {
-        onClick?()
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        onClick?()
     }
 }

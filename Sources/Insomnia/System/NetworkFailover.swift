@@ -192,9 +192,9 @@ enum HotspotPasswordProblem: Equatable, Sendable {
     var menuLine: String {
         switch self {
         case .missing:
-            "Hotspot password missing. Add it in Settings"
+            "Hotspot password missing"
         case .unreadable, .error:
-            "Hotspot password needs entering again in Settings"
+            "Hotspot password needs re-entering"
         }
     }
 
@@ -205,9 +205,9 @@ enum HotspotPasswordProblem: Equatable, Sendable {
         case .missing:
             nil
         case .unreadable:
-            "This build of Insomnia can't read the saved password: it was saved by another build, or the login keychain is locked. Enter it again and save. macOS may ask you to allow Insomnia to replace the old item."
-        case let .error(message):
-            "The saved password can't be read: \(message)"
+            "Can\u{2019}t read the saved password. Choose the network again."
+        case .error:
+            "Can\u{2019}t read the saved password. Choose the network again."
         }
     }
 }
@@ -1080,7 +1080,7 @@ final class NetworkFailover {
                 Log.error("hotspot \(ssid) refused the saved password; not retrying until it changes")
                 onJoinResult?(.rejected, nil)
                 if notifiedThisOutage.insert(ssid).inserted {
-                    notifier.post(title: "Hotspot password didn\u{2019}t work", body: "The hotspot password didn\u{2019}t work. Update it in Settings.")
+                    notifier.post(title: "Hotspot password didn\u{2019}t work", body: "Update it in Settings.")
                 }
             }
         } catch {
@@ -1114,10 +1114,10 @@ final class NetworkFailover {
             }
             // A keystroke that went out before the stop is still reported.
             if !stopped || count > 0 {
-                let panes = count == 1 ? "1 tmux pane" : "\(count) tmux panes"
+                let nudged = count == 0 ? "" : count == 1 ? " Nudged 1 tmux pane." : " Nudged \(count) tmux panes."
                 notifier.post(
-                    title: "Network recovered",
-                    body: "Network was down \(FailoverMachine.humanGap(gap)). Nudged \(panes). Check GUI agents."
+                    title: "Back online",
+                    body: "Offline for \(FailoverMachine.humanGap(gap)).\(nudged)"
                 )
             }
         }

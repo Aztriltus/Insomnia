@@ -1552,7 +1552,11 @@ final class SessionManager {
             if !agentCanFinish { scheduleEndRetry(reason) }
             return .incomplete(agentArmed: agentCanFinish)
         }
-        notifier.post(title: Self.endTitle(reason, had: had), body: endBody(reason, waiting: waiting))
+        // Ending it yourself needs no notification, unless an output is
+        // still muted.
+        if reason != .user || !waiting.isEmpty {
+            notifier.post(title: Self.endTitle(reason, had: had), body: endBody(reason, waiting: waiting))
+        }
         return .restored
     }
 
@@ -3254,10 +3258,10 @@ final class SessionManager {
     nonisolated static func stillMutedSentence(_ waiting: [SavedAudioOutput]) -> String {
         let names = waiting.map(\.label)
         if names.count == 1 {
-            return "\(names[0]) was not connected, so it is still muted. Insomnia restores its volume when it reconnects while Insomnia is running, or at the next launch."
+            return "\(names[0]) is still muted until it reconnects."
         }
         let list = names.dropLast().joined(separator: ", ") + " and " + names[names.count - 1]
-        return "\(list) were not connected, so they are still muted. Insomnia restores each one's volume when it reconnects while Insomnia is running, or at the next launch."
+        return "\(list) are still muted until they reconnect."
     }
 
     /// The incomplete-restore notification's sentence about saved output
@@ -3277,18 +3281,18 @@ final class SessionManager {
 
     private func endBody(_ reason: EndReason, outputsWaiting: Bool) -> String {
         switch reason {
-        case .timer: "Time is up. Sleep is back to normal."
-        case .user: "Ended by you. Sleep is back to normal."
-        case .quit: "Insomnia quit. Sleep is back to normal."
-        case .batteryFloor: "Battery fell below \(config.endFloor)%. Sleep is back to normal."
-        case .batteryUnreadable: "The battery level could not be read twice in a row, so the \(config.endFloor)% floor could not be applied. Sleep is back to normal."
-        case .thermalCritical: "Thermal state is critical. Sleep is back to normal."
+        case .timer: "Time\u{2019}s up."
+        case .user: "Ended."
+        case .quit: "Insomnia quit."
+        case .batteryFloor: "Battery below \(config.endFloor)%."
+        case .batteryUnreadable: "Couldn\u{2019}t read the battery."
+        case .thermalCritical: "Your Mac got too hot."
         case .backstop: outputsWaiting
             ? "A previous session left changes behind. Sleep is back to normal."
             : "A previous session left changes behind; everything has been undone."
         case .recoveryUnavailable: "Insomnia could not arm its recovery agent for the session found on disk, so it ended the session. Sleep is back to normal."
         case .startFailed: "Insomnia could not disable sleep, so no session was started. Sleep is back to normal."
-        case .leaseLapsed: "Insomnia couldn't keep the session going, so it ended. Sleep is back to normal."
+        case .leaseLapsed: "Insomnia stopped running."
         }
     }
 }

@@ -495,7 +495,9 @@ final class RecoverySafetyTests: XCTestCase {
         XCTAssertFalse(h.guardFake.sleepDisabled)
         XCTAssertEqual(try h.store.loadState(), RuntimeState.clean)
         XCTAssertNil(try h.store.loadSession())
-        XCTAssertEqual(h.notifier.posts.last?.title, "Session ended")
+        // An end you asked for posts nothing once it succeeds; the last
+        // notification is still the one about the busy lock.
+        XCTAssertFalse(h.notifier.posts.contains { $0.title == "Session ended" })
     }
 
     /// While an end is pending, a new session would be ended by the retry;

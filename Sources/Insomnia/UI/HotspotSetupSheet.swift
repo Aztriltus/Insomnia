@@ -49,7 +49,7 @@ struct HotspotSetupSheet: View {
 
     private var locationGate: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("macOS only shows Wi-Fi names to apps with Location Services. Insomnia never reads your location.")
+            Text("Allow Location Services to see Wi-Fi names. Your location isn\u{2019}t read.")
                 .fixedSize(horizontal: false, vertical: true)
             if locationPermission.isDenied {
                 Button("Open Location Services") { locationPermission.openLocationServicesSettings() }
@@ -69,14 +69,22 @@ struct HotspotSetupSheet: View {
             }
             List(rows, selection: Binding(get: { chosen?.id }, set: { id in choose(rows.first { $0.id == id }) })) { row in
                 HStack {
-                    Image(systemName: "wifi", variableValue: Double(HotspotMatcher.bars(rssi: row.rssi)) / 3)
-                        .accessibilityLabel("Signal \(HotspotMatcher.bars(rssi: row.rssi)) of 3")
+                    if row.inRange {
+                        Image(systemName: "wifi", variableValue: Double(HotspotMatcher.bars(rssi: row.rssi)) / 3)
+                            .accessibilityLabel("Signal \(HotspotMatcher.bars(rssi: row.rssi)) of 3")
+                    } else {
+                        Image(systemName: "wifi.slash")
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Not in range")
+                    }
                     Text(row.ssid)
                     Spacer()
                     if row.ssid == current {
                         Text("Connected").font(.caption).foregroundStyle(.secondary)
+                    } else if !row.inRange {
+                        Text("Not in range").font(.caption).foregroundStyle(.secondary)
                     } else if known.contains(row.ssid) {
-                        Text("Saved on this Mac").font(.caption).foregroundStyle(.secondary)
+                        Text("Saved").font(.caption).foregroundStyle(.secondary)
                     }
                     if row.isSecured {
                         Image(systemName: "lock.fill").font(.caption).foregroundStyle(.secondary).accessibilityLabel("Has a password")
@@ -88,7 +96,7 @@ struct HotspotSetupSheet: View {
             if let scanError {
                 Text(scanError).font(.caption).foregroundStyle(.orange)
             }
-            Text("Don\u{2019}t see your iPhone? On the iPhone, open Settings > Personal Hotspot and keep that screen open while you choose.")
+            Text("Not listed? Open Personal Hotspot on your iPhone.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -102,7 +110,7 @@ struct HotspotSetupSheet: View {
                 if known.contains(row.ssid), password.isEmpty, !askFailed {
                     Button(asking ? "Waiting for macOS\u{2026}" : "Use saved password") { useSaved(row) }
                         .disabled(asking)
-                    Text("macOS asks for an administrator\u{2019}s name and password in its own window. Insomnia never sees them.")
+                    Text("macOS may ask for your Mac password.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -112,12 +120,9 @@ struct HotspotSetupSheet: View {
                 if let problem = problem(row), !password.isEmpty {
                     Text(problem).font(.caption).foregroundStyle(.orange)
                 }
-                Text("Saved in your login keychain. Insomnia checks it the first time it joins.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         } else {
-            Text("Open network: no password needed.").font(.caption).foregroundStyle(.secondary)
+            Text("No password needed").font(.caption).foregroundStyle(.secondary)
         }
     }
 
@@ -130,7 +135,7 @@ struct HotspotSetupSheet: View {
 
     private func problem(_ row: HotspotMatcher.Row) -> String? {
         if row.isSecured, password.isEmpty { return "Enter the password." }
-        if !rows.contains(where: { $0.ssid == row.ssid }) { return "This network is no longer in range. Rescan and choose it again." }
+        if row.inRange, !rows.contains(where: { $0.ssid == row.ssid }) { return "This network is no longer in range. Rescan and choose it again." }
         return HotspotSecurity.passwordProblem(password, security: row.security)
     }
 
@@ -161,8 +166,9 @@ struct HotspotSetupSheet: View {
         defer { scanning = false }
         do {
             let scan = try await WiFiScanner.scan()
-            rows = HotspotMatcher.rows(scan)
-            known = WiFiScanner.knownSSIDs()
+            let saved = WiFiScanner.savedNetworks()
+            rows = HotspotMatcher.addingSaved(HotspotMatcher.rows(scan), saved: saved)
+            known = Set(saved.map(\.ssid))
             current = WiFiScanner.currentSSID()
             scanError = rows.isEmpty ? "No networks found. Is Wi-Fi on?" : nil
         } catch {

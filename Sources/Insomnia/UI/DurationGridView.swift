@@ -1,13 +1,17 @@
 import AppKit
 
-/// The menu's grid of durations: four cells to a row, the highlighted one
+/// The menu's grid of durations: three cells to a row, the highlighted one
 /// being the running session's. A custom view inside one NSMenuItem.
 @MainActor
 final class DurationGridView: NSView {
-    static let columns = 4
-    static let cellSize = NSSize(width: 60, height: 28)
+    static let columns = 3
+    static let cellSize = NSSize(width: 76, height: 28)
     static let gap: CGFloat = 6
     static let inset: CGFloat = 14
+    /// The menu's width, set by the grid, which is its widest row.
+    static var width: CGFloat {
+        inset * 2 + CGFloat(columns) * cellSize.width + CGFloat(columns - 1) * gap
+    }
 
     private let onTap: (SessionMenu.Cell) -> Void
     private var buttons: [(NSButton, SessionMenu.Cell)] = []
@@ -116,4 +120,51 @@ final class ThrottledAppsView: NSView {
         enclosingMenuItem?.menu?.cancelTracking()
         onTap(entry.1)
     }
+}
+
+/// The menu's first row, laid out like the Battery menu's: the eye (open
+/// while active, closed while not) and the state in bold on the left, a
+/// grey value on the right ("until 6:40 PM").
+@MainActor
+final class MenuHeaderView: NSView {
+    static let inset: CGFloat = 14
+    static let height: CGFloat = 24
+
+    init(title: String, value: String?, eyeOpen: Bool, width: CGFloat) {
+        super.init(frame: NSRect(x: 0, y: 0, width: width, height: Self.height))
+        autoresizingMask = [.width]
+        let eye = NSImageView(image: StatusIcon.image(open: eyeOpen, attention: false))
+        eye.frame = NSRect(x: Self.inset, y: (Self.height - 16) / 2, width: 16, height: 16)
+        eye.contentTintColor = .labelColor
+        eye.setAccessibilityElement(false)
+        addSubview(eye)
+
+        let label = NSTextField(labelWithString: title)
+        label.font = NSFont.menuFont(ofSize: 0).withBold
+        label.textColor = .labelColor
+        label.sizeToFit()
+        label.frame.origin = NSPoint(x: Self.inset + 16 + 7, y: (Self.height - label.frame.height) / 2)
+        addSubview(label)
+
+        if let value {
+            let right = NSTextField(labelWithString: value)
+            right.font = NSFont.menuFont(ofSize: 0)
+            right.textColor = .secondaryLabelColor
+            right.alignment = .right
+            right.sizeToFit()
+            right.frame.origin = NSPoint(x: width - Self.inset - right.frame.width, y: (Self.height - right.frame.height) / 2)
+            right.autoresizingMask = [.minXMargin]
+            addSubview(right)
+        }
+        setAccessibilityElement(true)
+        setAccessibilityRole(.staticText)
+        setAccessibilityLabel([title, value].compactMap { $0 }.joined(separator: ", "))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+}
+
+extension NSFont {
+    var withBold: NSFont { NSFontManager.shared.convert(self, toHaveTrait: .boldFontMask) }
 }

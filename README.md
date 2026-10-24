@@ -187,7 +187,9 @@ alone. [docs/recovery.md](docs/recovery.md) explains each case.
 <summary><strong>iPhone hotspot handoff and tmux</strong></summary>
 
 If the Wi-Fi drops, or stays connected with no internet, during a session,
-Insomnia can join your iPhone's hotspot. In Settings > Hotspot backup, choose
+Insomnia can join your iPhone's hotspot. Set System Settings > Wi-Fi > Ask to
+join hotspots to Automatically: only macOS can wake a hotspot that isn't
+broadcasting, and Settings tells you when that setting is off. In Settings > Hotspot backup, choose
 Set up and pick the hotspot from the list of nearby networks. Insomnia
 remembers its name and hardware address. Choosing a network doesn't join it,
 so your Wi-Fi isn't interrupted. If your Mac already knows the network, Use

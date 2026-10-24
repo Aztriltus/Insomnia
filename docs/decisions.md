@@ -45,7 +45,7 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 **Replaced:** a menu of templates with a custom-time field and Save as template (2026-10-23) → a grid with no custom field (2026-10-24) · a two-unit countdown in the menu bar (2026-10-23) → the eye alone (2026-10-24).
 
 <details>
-<summary>13 decisions</summary>
+<summary>17 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
@@ -58,7 +58,11 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 | 2026-10-24 | **The lid, watts, battery and Wi-Fi line is left out of the menu.** | "Don't think we need the long line in the menu." | Keeping it. |
 | 2026-10-24 | **Throttled browsers show as a "Throttled" heading over their icons, with no labels; clicking an icon offers Relaunch unthrottled or Advanced settings.** | Owner's request. | A warning line plus one "Relaunch … unthrottled" item per browser. |
 | 2026-10-24 | **The running grid cell is filled in the accent colour and counts down the time left; clicking it ends the session and its label goes back to normal.** | "Show which grid item was clicked, and modify that grid item label so it counts down." | A highlight with a fixed label. |
-| 2026-10-24 | **A dot in the accent colour goes in front of the Active line.** | Owner's request. | Text alone. |
+| 2026-10-24 | **A dot in the accent colour goes in front of the Active line.** **Superseded 2026-10-24** | Owner's request. | Text alone. |
+| 2026-10-24 | **The menu follows macOS’s Battery menu: a first row with the eye (open or closed) and the state in bold, the end time in grey on the right, grey section headings, standard text size, separators between sections.** | Owner’s request, with a screenshot of the Battery menu. | A dot before Active; small text for warnings. |
+| 2026-10-24 | **The grid has three columns.** | The menu was too wide with four; owner suggested fewer columns. | Four wider columns. |
+| 2026-10-24 | **The status item is the eye as the button’s image in the standard square slot; it no longer animates.** | "Keep it to minimum or to apple’s standard"; the custom view sat high and wide. | A custom-drawn view with a blink. |
+| 2026-10-24 | **All copy is short: no help lines that repeat a title, no engineer explanations, no raw errors; ending a session yourself posts no notification.** | "Deslop the whole app for long labels or redundant text." | The longer explanatory copy. |
 | 2026-10-24 | **The menu bar shows the eye alone and never gets wider; no countdown.** | "The menu should stay as a single icon. Shouldn't get wider at all." | A two-unit countdown next to the eye. |
 | 2026-10-24 | **The menu stays open after a grid cell is clicked; the first line and highlight update in place.** | Owner's request. | Closing the menu on each choice. |
 | 2026-10-24 | **The menu leaves out status and diagnostic lines (journal state, paused-app counts, raw errors) and shows only what needs attention, in plain words.** | "Should omit any slop labels in the dropdown menu." | "Sleep held per journal — not verified live", "3 apps frozen · last gap", raw error text. |
@@ -89,7 +93,7 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 **Replaced:** checking the network by joining it during setup → no join during setup (2026-10-23).
 
 <details>
-<summary>3 decisions</summary>
+<summary>6 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
@@ -111,6 +115,10 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
 | 2026-10-24 | **Cut the test suite to the essentials: the session engine, recovery, lid actions, floors, failover, config, the menu, and a core set of recovery-script cases.** | "The full test suite is slow for such a small app." | Keeping upstream's edge-case suites (branding, release workflow, brightness, hung commands, keychain internals and others). |
+
+| 2026-10-24 | **The setup sheet also lists networks macOS has saved that aren’t in range, so the iPhone hotspot can be chosen without opening its Personal Hotspot screen.** | "Usually I won’t do that when I need it to auto-connect." | Listing only what a scan sees. |
+| 2026-10-24 | **Use saved password tries the user’s own keychain before macOS’s administrator dialog.** | The admin dialog is macOS’s; no API fills in its name. | Prefilling the dialog. |
+| 2026-10-24 | **Settings checks macOS’s Ask to join hotspots (`AutoHotspotMode`) and asks for Automatically when it’s Ask or Never.** | Only macOS can wake a hotspot that isn’t broadcasting; Ask needs someone at the Mac. | Leaving it to the README. |
 
 </details>
 
