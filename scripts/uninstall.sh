@@ -815,6 +815,8 @@ app_running() {
 # recovery work, and that refusal must stand: no pkill, no force.
 step "Quitting Insomnia"
 if app_running; then
+  # The fork's ID, then upstream's, for an install made before the rename.
+  "$OSASCRIPT" -e 'tell application id "com.zacheryng.insomnia" to quit' >/dev/null 2>&1 || true
   "$OSASCRIPT" -e 'tell application id "com.kgarg.insomnia" to quit' >/dev/null 2>&1 || true
   for (( i = 0; i < QUIT_WAIT_SECONDS; i++ )); do
     app_running || break

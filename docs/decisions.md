@@ -134,11 +134,15 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 **Replaced:** none.
 
 <details>
-<summary>2 decisions</summary>
+<summary>6 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
 | 2026-10-24 | **Distribute as a DMG holding the app, the installer scripts, double-clickable Install and Uninstall commands, and a Read Me.** | "Can we build a dmg so I can distribute?" Insomnia needs its installer (sudoers rule, recovery agent), so drag-to-Applications can't work. | A drag-to-Applications DMG. |
+| 2026-10-24 | **Ship under the fork’s own bundle ID, `com.zacheryng.insomnia`; the scripts still quit an app with upstream’s ID.** | Builds are signed with the owner’s Developer ID. | Keeping `com.kgarg.insomnia`. |
+| 2026-10-24 | **Developer ID signing with the hardened runtime, and notarization of the app and the DMG, when the identity and notary profile exist; ad-hoc otherwise.** | "Yes set it up." Removes the Gatekeeper prompts, and a team-pinned signature survives updates. | Ad-hoc only. |
+| 2026-10-24 | **Over-the-air updates with Sparkle, from an appcast on the fork’s GitHub Releases (`releases/latest/download/appcast.xml`), released with `scripts/release.sh`.** | "So they can just check for updates and get it when I update it." | GitHub Pages for the appcast; upstream’s report-only update check. |
+| 2026-10-24 | **Upstream’s release workflow is manual-only in the fork.** | A `v*` tag would otherwise publish an unsigned zip and collide with the release from `release.sh`. | Keeping tag and nightly triggers. |
 | 2026-10-24 | **No TestFlight.** | TestFlight only carries App Store builds, which must be sandboxed; Insomnia runs `sudo pmset`, pauses other apps' processes, uses private display APIs and installs a launchd agent. | Reworking the app for the App Store. |
 
 </details>

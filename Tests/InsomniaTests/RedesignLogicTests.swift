@@ -192,14 +192,14 @@ final class InstalledAppsTests: XCTestCase {
             record("com.tinyspeck.slackmacgap", "Slack"),
             record("com.apple.Safari", "Safari"),
             record("com.example.sys", "Sys", path: "/System/Applications/Sys.app"),
-            record("com.kgarg.insomnia", "Insomnia"),
+            record("com.zacheryng.insomnia", "Insomnia"),
             record(nil, "NoID"),
             record("com.example.helper", "Helper", background: true),
             record("com.example.deep", "Deep", depth: 3),
             record("com.setapp.tool", "Tool", depth: 2),
             record("io.tailscale.ipn.macsys", "Tailscale"),
             record("com.example.discord", "discord"),
-        ], selfBundleID: "com.kgarg.insomnia")
+        ], selfBundleID: "com.zacheryng.insomnia")
         XCTAssertEqual(apps.map(\.name), ["discord", "Slack", "Tailscale", "Tool"])
     }
 

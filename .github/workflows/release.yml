@@ -22,12 +22,10 @@ name: Release
 # The bundle is ad-hoc signed and not notarized (build-app.sh), so the run
 # uses no secrets and no keychain. Every action is pinned to a commit.
 
+# This fork releases from a Mac with scripts/release.sh: a Developer ID
+# signed, notarized DMG and a Sparkle appcast. Tag pushes and the nightly
+# no longer run here, so they can't publish an unsigned zip over a release.
 on:
-  push:
-    tags: ['v*']
-  schedule:
-    # 07:17 UTC. GitHub delays scheduled runs most at the start of the hour.
-    - cron: '17 7 * * *'
   workflow_dispatch:
     inputs:
       nightly:

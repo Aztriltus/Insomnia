@@ -8,7 +8,7 @@ How the current build does what [spec.md](spec.md) describes. When the two disag
 | --- | --- |
 | Toolchain | Swift tools 6.2, Swift 6 language mode, Swift Package (no Xcode project) |
 | Platform | macOS 26+ (`LSMinimumSystemVersion` 26.0), arm64 release bundles |
-| Bundle id | `com.kgarg.insomnia` (inherited from upstream; `Resources/Info.plist`) |
+| Bundle id | `com.zacheryng.insomnia` (`Resources/Info.plist`; renamed from upstream's `com.kgarg.insomnia` on 2026-10-24, and the scripts still quit an app with the old ID) |
 | App type | `LSUIElement` true, `.accessory` activation policy; status item only |
 | Signing | Ad-hoc (`codesign --force --sign -`) in `scripts/build-app.sh` |
 | sudoers | `/etc/sudoers.d/insomnia`, 0440, four `pmset` commands, validated with `visudo -cf` |
@@ -129,11 +129,38 @@ App bundle:
 ./scripts/build-app.sh --output build
 ```
 
-Disk image to hand to other people (`dist/Insomnia-<version>.dmg` and its `.sha256`): the app, `install.sh`, `uninstall.sh`, "Install Insomnia.command", "Uninstall Insomnia.command" and a Read Me with the Gatekeeper steps. It's ad-hoc signed and not notarized, like the release zip:
+Disk image to hand to other people (`dist/Insomnia-<version>.dmg` and its `.sha256`): the app, `install.sh`, `uninstall.sh`, "Install Insomnia.command", "Uninstall Insomnia.command" and a Read Me. With a Developer ID Application identity in the keychain it signs with the hardened runtime and notarizes and staples both the app and the DMG; without one it falls back to ad-hoc:
 
 ```bash
 ./scripts/build-dmg.sh
 ```
+
+## Runbook: releasing an update
+
+Installed copies check `https://github.com/Aztriltus/Insomnia/releases/latest/download/appcast.xml` once a day with Sparkle (`UI/AppUpdater.swift`, `SUFeedURL` and `SUPublicEDKey` in Info.plist), and Settings > Advanced > About > Check for updates checks now.
+
+One-time setup on the release Mac:
+
+1. A **Developer ID Application** certificate in the login keychain (developer.apple.com > Certificates; the account holder creates it).
+2. Notary credentials stored as a keychain profile, with an app-specific password from appleid.apple.com:
+
+   ```bash
+   xcrun notarytool store-credentials insomnia-notary --apple-id <apple id> --team-id <team id>
+   ```
+
+3. The Sparkle EdDSA private key in the login keychain. It was made on 2026-10-24 with `.build/artifacts/sparkle/Sparkle/bin/generate_keys`; its public half is `SUPublicEDKey`. Losing the private key means installed copies can't verify updates any more: back it up with `generate_keys -x <file>`.
+
+Each release, from a clean tree on the branch to ship:
+
+```bash
+./scripts/release.sh 0.2.0 "What changed, in a sentence or two."
+```
+
+It sets the version and build number in Info.plist and commits that, builds the notarized DMG, writes and signs `appcast.xml`, pushes the branch, and creates GitHub release `v0.2.0` with both files, marked Latest. It refuses to run without a Developer ID identity: Sparkle replaces the app in place, and the recovery agent keeps trusting it only when its pinned requirement names the team rather than an ad-hoc cdhash.
+
+- The first Developer ID build has to be installed with its installer, once, so the agent pins the team requirement. Updates after that need no reinstall.
+- An update ends a running session, like any quit.
+- Upstream's `release.yml` is manual-only in this fork, so a `v*` tag can't publish an unsigned zip over a release.
 
 Testing:
 

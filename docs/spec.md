@@ -111,7 +111,7 @@ One window. The top level holds:
 | Coding agents | Type "continue" into tmux panes after | 10–900 s | 90 s |
 | | Press Return after typing | on / off | off |
 | | tmux panes | list | empty |
-| About | Version, Check for updates, Show settings file in Finder | | |
+| About | Version, Check for updates (Sparkle; also checks once a day on its own and installs on your say-so), Show settings file in Finder | | |
 
 The end floor always stays below the Low Power Mode floor; moving one into the other pushes it along.
 
@@ -198,7 +198,7 @@ After a set time offline (90 seconds by default), Insomnia can type `continue` i
   - `/usr/bin/pmset -b lowpowermode 0`
 - Any program running as you can use that rule too.
 - The uninstaller undoes any open session first, then removes the app, the agent and the rule (and, with `--purge`, settings and logs).
-- Check for updates asks GitHub only when clicked and installs nothing; upgrading means running the installer again.
+- Distributed as a DMG with an Install command. Updates arrive over the air with Sparkle from the fork’s GitHub Releases: checked once a day and from Settings, signed with an EdDSA key, and installed in place.
 
 ## 11. Privacy and data
 
@@ -210,7 +210,7 @@ After a set time offline (90 seconds by default), Insomnia can type `continue` i
 | Hotspot password | your login Keychain, readable without a prompt only by the build that saved it | no |
 | Location Services | used only to read Wi-Fi names and hardware addresses; your location is never requested | no |
 | Installed-app list | read from app bundles on disk when Settings needs it | no |
-| Update check | two requests to GitHub, only when you click | yes, carrying only the app version |
+| Update check | Sparkle fetches the appcast from GitHub Releases once a day and when you click | yes, carrying the app and macOS versions |
 | Internet check | an HTTPS request to Apple's captive-portal page during a session, only after a network change or a failed check | yes, carrying nothing about the Mac |
 
 ## Quality bar

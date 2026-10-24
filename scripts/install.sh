@@ -71,7 +71,7 @@ LOCK_TIMEOUT_SECONDS=10
 CALL_TIMEOUT_SECONDS=30
 
 # What a prebuilt bundle (--app) must be.
-BUNDLE_ID=com.kgarg.insomnia
+BUNDLE_ID=com.zacheryng.insomnia
 
 # The folder this script is in. build-app.sh and backstop.sh are taken from
 # there, and only when it is the scripts/ folder of a source checkout, with
@@ -430,6 +430,8 @@ step "Staging Insomnia.app"
 # and nothing of the old install is overwritten while it is still running.
 if "$PGREP" -x Insomnia >/dev/null 2>&1; then
   echo "Insomnia is running; quitting it first (this ends any session)."
+  # The fork's ID, then upstream's, for an install made before the rename.
+  "$OSASCRIPT" -e 'tell application id "com.zacheryng.insomnia" to quit' >/dev/null 2>&1 || true
   "$OSASCRIPT" -e 'tell application id "com.kgarg.insomnia" to quit' >/dev/null 2>&1 || true
   for (( i = 0; i < QUIT_WAIT_SECONDS; i++ )); do
     "$PGREP" -x Insomnia >/dev/null 2>&1 || break

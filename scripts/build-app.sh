@@ -23,6 +23,7 @@ RM=/bin/rm
 MKDIR=/bin/mkdir
 CP=/bin/cp
 CHMOD=/bin/chmod
+DITTO=/usr/bin/ditto
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -128,10 +129,29 @@ step "Assembling $APP"
 "$CP" "$ROOT/scripts/backstop.sh" "$APP/Contents/Resources/backstop.sh"
 "$CHMOD" 755 "$APP/Contents/Resources/backstop.sh"
 "$PLUTIL" -lint "$APP/Contents/Info.plist" >/dev/null
+# Sparkle, for over-the-air updates; the binary finds it through its rpath.
+"$MKDIR" -p "$APP/Contents/Frameworks"
+"$DITTO" "$(dirname "$BIN")/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 
 # 3. Sign --------------------------------------------------------------------
-step "Signing ad-hoc (this build is identified only by its cdhash)"
-"$CODESIGN" --force --sign - "$APP"
-"$CODESIGN" --verify --strict "$APP"
+# INSOMNIA_SIGN_IDENTITY names a "Developer ID Application" identity in the
+# keychain. With one, everything is signed with the hardened runtime and a
+# secure timestamp, as notarization needs, inside out: Sparkle's helpers,
+# the framework, then the app. Without one, the build is ad-hoc signed.
+if [[ -n "${INSOMNIA_SIGN_IDENTITY:-}" ]]; then
+  step "Signing with $INSOMNIA_SIGN_IDENTITY (hardened runtime)"
+  sign=("$CODESIGN" --force --options runtime --timestamp --sign "$INSOMNIA_SIGN_IDENTITY")
+else
+  step "Signing ad-hoc (this build is identified only by its cdhash)"
+  sign=("$CODESIGN" --force --sign -)
+fi
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
+"${sign[@]}" "$SPARKLE/XPCServices/Installer.xpc"
+"${sign[@]}" --preserve-metadata=entitlements "$SPARKLE/XPCServices/Downloader.xpc"
+"${sign[@]}" "$SPARKLE/Autoupdate"
+"${sign[@]}" "$SPARKLE/Updater.app"
+"${sign[@]}" "$APP/Contents/Frameworks/Sparkle.framework"
+"${sign[@]}" "$APP"
+"$CODESIGN" --verify --strict --deep "$APP"
 "$CODESIGN" -dvv "$APP" 2>&1 | grep -E '^(Identifier|Signature|Authority|TeamIdentifier|CDHash)=' || true
 echo "$APP"

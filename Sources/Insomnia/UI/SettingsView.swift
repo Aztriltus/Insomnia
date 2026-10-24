@@ -11,8 +11,8 @@ struct SettingsView: View {
     let locationPermission: LocationPermission
     /// Launch at login as macOS reports it, not as config.json remembers it.
     let loginItem: LoginItem
-    /// The "Check for updates" button's one request and its report.
-    let releases: ReleaseChecker
+    /// Sparkle's updater, for Check for updates.
+    let updater: AppUpdater
 
     @State private var newTmuxTarget = ""
     /// The notice about the saved hotspot password (a keychain item this
@@ -582,30 +582,11 @@ struct SettingsView: View {
 
     // MARK: Login item and updates
 
-    /// The update check: one request to GitHub's releases list per click,
-    /// and the report under the buttons. It opens the releases page and
-    /// installs nothing; the installer run again is the upgrade.
+    /// Check for updates, when this build can update itself.
     @ViewBuilder
     private var releaseCheck: some View {
-        HStack {
-            Button(releases.state == .checking ? "Checking" : "Check for updates") { releases.check() }
-                .disabled(releases.state == .checking)
-            Button("Open releases page") { NSWorkspace.shared.open(GitHubReleaseFetcher.releasesPage) }
-        }
-        switch releases.state {
-        case .idle:
-            EmptyView()
-        case .checking:
-            EmptyView()
-        case let .checked(report):
-            Text(report.summary)
-                .font(.caption)
-                .foregroundStyle(report.standing == .newerStableAvailable ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                .textSelection(.enabled)
-        case .failed:
-            Text("Couldn\u{2019}t check for updates")
-                .font(.caption)
-                .foregroundStyle(.red)
+        if updater.isAvailable {
+            Button("Check for updates") { updater.checkForUpdates() }
         }
     }
 

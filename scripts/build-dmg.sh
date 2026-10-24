@@ -6,9 +6,18 @@
 # can't be installed by dragging it to Applications: install.sh writes the
 # sudoers rule for its four pmset commands and loads the recovery agent.
 #
-# The app is ad-hoc signed and not notarized, so macOS blocks the first run
-# of the installer and of the app until the user allows each one; the Read
-# Me says how.
+# Signing: with a "Developer ID Application" identity in the keychain (or
+# named by INSOMNIA_SIGN_IDENTITY), the app is signed with the hardened
+# runtime, notarized and stapled, and so is the disk image. The notary
+# credentials are a keychain profile, INSOMNIA_NOTARY_PROFILE (default
+# "insomnia-notary"), stored once with:
+#
+#   xcrun notarytool store-credentials insomnia-notary \
+#     --apple-id you@example.com --team-id TEAMID
+#
+# Without an identity the build is ad-hoc signed and not notarized, and
+# macOS blocks the first run of the installer and of the app until the user
+# allows each one; the Read Me says how.
 #
 #   scripts/build-dmg.sh            build the app, then the disk image
 set -euo pipefail
@@ -19,7 +28,25 @@ dist="$root/dist"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 
-"$here/build-app.sh" --output "$stage/build" >/dev/null
+identity="${INSOMNIA_SIGN_IDENTITY:-$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -n 1)}"
+profile="${INSOMNIA_NOTARY_PROFILE:-insomnia-notary}"
+if [[ -n "$identity" ]]; then
+  echo "Signing with $identity; notarizing with the \"$profile\" keychain profile"
+else
+  echo "No Developer ID identity: ad-hoc signed, not notarized"
+fi
+
+# Submits $1 for notarization and staples the ticket to $2.
+notarize() {
+  xcrun notarytool submit "$1" --keychain-profile "$profile" --wait
+  xcrun stapler staple "$2"
+}
+
+INSOMNIA_SIGN_IDENTITY="$identity" "$here/build-app.sh" --output "$stage/build" >/dev/null
+if [[ -n "$identity" ]]; then
+  /usr/bin/ditto -c -k --keepParent "$stage/build/Insomnia.app" "$stage/app.zip"
+  notarize "$stage/app.zip" "$stage/build/Insomnia.app"
+fi
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$stage/build/Insomnia.app/Contents/Info.plist")"
 volume="$stage/Insomnia"
 mkdir -p "$volume" "$dist"
@@ -51,13 +78,13 @@ Keeps your Mac awake, lid open or closed, for as long as you choose.
 Needs macOS 26 or later on an Apple Silicon Mac.
 
 To install
-1. Double-click "Install Insomnia". If macOS says it can't verify the
-   developer, open System Settings > Privacy & Security, click Open Anyway,
-   then double-click it again.
+1. Double-click "Install Insomnia". If macOS says it can't open it, open
+   System Settings > Privacy & Security, click Open Anyway, then
+   double-click it again.
 2. Enter your Mac password when Terminal asks. It's used once, to let
    Insomnia turn sleep off and on.
-3. Insomnia opens as an eye in the menu bar. If macOS blocks it the first
-   time, allow it in Privacy & Security the same way.
+3. Insomnia opens as an eye in the menu bar. It updates itself from then
+   on: Settings > Advanced > About > Check for updates, or automatically.
 
 For hotspot backup, set System Settings > Wi-Fi > Ask to join hotspots to
 Automatically.
@@ -68,5 +95,9 @@ EOF
 out="$dist/Insomnia-$version.dmg"
 rm -f "$out"
 hdiutil create -quiet -volname "Insomnia $version" -srcfolder "$volume" -fs HFS+ -format UDZO "$out"
+if [[ -n "$identity" ]]; then
+  codesign --force --timestamp --sign "$identity" "$out"
+  notarize "$out" "$out"
+fi
 shasum -a 256 "$out" | tee "$out.sha256"
 echo "$out"

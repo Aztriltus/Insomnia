@@ -921,7 +921,7 @@ private final class ScriptFixture {
         try """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.kgarg.insomnia</string></dict></plist>
+        <plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.zacheryng.insomnia</string></dict></plist>
         """.write(to: resources.appendingPathComponent("Info.plist"), atomically: true, encoding: .utf8)
         try "icns".write(to: resources.appendingPathComponent("AppIcon.icns"), atomically: true, encoding: .utf8)
         let binroot = root.appendingPathComponent("binroot", isDirectory: true)
@@ -1066,7 +1066,7 @@ private final class ScriptFixture {
     /// backstop (the fixture's patched copy, so install.sh's recovery step
     /// acts on the fixture). What the fake codesign says about its signature
     /// is set with `setMode("codesign", ...)` and `setSigning(...)`.
-    func writePrebuiltApp(bundleID: String = "com.kgarg.insomnia", version: String = "0.1.0", withBackstop: Bool = true, machO: Bool = false) throws -> URL {
+    func writePrebuiltApp(bundleID: String = "com.zacheryng.insomnia", version: String = "0.1.0", withBackstop: Bool = true, machO: Bool = false) throws -> URL {
         let app = root.appendingPathComponent("dist/Insomnia.app", isDirectory: true)
         try fm.createDirectory(at: app.appendingPathComponent("Contents/MacOS"), withIntermediateDirectories: true)
         try fm.createDirectory(at: app.appendingPathComponent("Contents/Resources"), withIntermediateDirectories: true)
@@ -1319,7 +1319,7 @@ private final class ScriptFixture {
         for a in "$@"; do
           case "$a" in
             -r-) echo "Executable=$last/Contents/MacOS/Insomnia" >&2; echo '# designated => \(requirement)' >&2; exit 0 ;;
-            -dvv) echo "Executable=$last/Contents/MacOS/Insomnia" >&2; echo "Identifier=com.kgarg.insomnia" >&2
+            -dvv) echo "Executable=$last/Contents/MacOS/Insomnia" >&2; echo "Identifier=com.zacheryng.insomnia" >&2
                   case "$signing" in
                     developer-id:*) echo "Authority=Developer ID Application: Tester (${signing#developer-id:})" >&2
                                     echo "Authority=Developer ID Certification Authority" >&2
