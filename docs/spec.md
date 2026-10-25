@@ -91,10 +91,10 @@ One window. The top level holds:
 
 **App lists**
 
-- Only apps you installed are shown (in Applications or your own Applications folder). Apple's apps, background-only helpers and Insomnia itself are left out. Menu bar apps are included.
+- Only apps you installed are shown: those in Applications or your own Applications folder, the Unity and Unreal editors (in the folders Unity Hub and the Epic Games Launcher install them to), and any app open in the Dock when the picker opens, wherever it lives. Apple's apps, background-only helpers, helpers inside another app, and Insomnia itself are left out. Menu bar apps are included.
 - "+" opens a searchable grid of installed apps with icons. Clicking toggles the app in that list.
 - An app is in at most one list; picking it for the other list moves it.
-- An app you've removed from the Mac disappears from the list, and comes back if you reinstall it.
+- An app you've removed from the Mac disappears from the list, and comes back if you reinstall it. An app added while it was running stays in the list after it quits, as long as macOS can still find it.
 
 **Advanced**
 

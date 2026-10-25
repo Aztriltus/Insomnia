@@ -183,8 +183,8 @@ final class OpenEndedLeaseTests: XCTestCase {
 }
 
 final class InstalledAppsTests: XCTestCase {
-    func record(_ id: String?, _ name: String, path: String? = nil, background: Bool = false, depth: Int = 1, system: Bool = true) -> InstalledApps.Record {
-        InstalledApps.Record(bundleID: id, name: name, path: path ?? "/Applications/\(name).app", backgroundOnly: background, depth: depth, inSystemApplications: system)
+    func record(_ id: String?, _ name: String, path: String? = nil, background: Bool = false, depth: Int = 1, source: InstalledApps.Source = .systemApplications) -> InstalledApps.Record {
+        InstalledApps.Record(bundleID: id, name: name, path: path ?? "/Applications/\(name).app", backgroundOnly: background, source: source, depth: depth)
     }
 
     func testFilter() {
@@ -205,11 +205,46 @@ final class InstalledAppsTests: XCTestCase {
 
     func testDuplicatePrefersApplications() {
         let apps = InstalledApps.filter([
-            record("com.example.app", "App", path: "/Users/me/Applications/App.app", system: false),
-            record("com.example.app", "App", path: "/Applications/App.app", system: true),
-            record("com.example.app", "App", path: "/Users/me/Applications/Other/App.app", depth: 2, system: false),
+            record("com.example.app", "App", path: "/Users/me/Applications/App.app", source: .userApplications),
+            record("com.example.app", "App", path: "/Applications/App.app"),
+            record("com.example.app", "App", path: "/Users/me/Applications/Other/App.app", depth: 2, source: .userApplications),
+            record("com.example.app", "App", path: "/Users/me/Games/App.app", source: .running),
         ], selfBundleID: "self")
         XCTAssertEqual(apps.map(\.path), ["/Applications/App.app"])
+    }
+
+    /// The Unity and Unreal editors sit deeper than the Applications scan
+    /// goes, or outside it; their own sources and running apps aren't held
+    /// to its depth.
+    func testEditorsAndRunningAppsAreKeptAtAnyDepth() {
+        let apps = InstalledApps.filter([
+            record("com.unity3d.UnityEditor5.x", "Unity", path: "/Applications/Unity/Hub/Editor/6000.0.23f1/Unity.app", depth: 5, source: .editorFolder),
+            record("com.epicgames.UnrealEditor", "UnrealEditor", path: "/Users/Shared/Epic Games/UE_5.4/Engine/Binaries/Mac/UnrealEditor.app", source: .editorFolder),
+            record("com.example.game", "Game", path: "/Users/me/Library/Application Support/Steam/steamapps/common/Game/Game.app", source: .running),
+            record("com.example.kept", "Kept", path: "/Volumes/Work/Kept.app", source: .saved),
+        ], selfBundleID: "self")
+        XCTAssertEqual(apps.map(\.name), ["Game", "Kept", "Unity", "UnrealEditor"])
+    }
+
+    func testRunningHelpersAndTemporaryCopiesAreLeftOut() {
+        let apps = InstalledApps.filter([
+            record("com.example.app.helper", "App Helper", path: "/Applications/App.app/Contents/Frameworks/App Helper.app", source: .running),
+            record("com.example.widget", "Widget", path: "/Applications/App.app/Contents/PlugIns/Widget.app", source: .running),
+            record("com.example.download", "Download", path: "/private/var/folders/ab/T/AppTranslocation/X/d/Download.app", source: .running),
+            record("com.example.top", "Top", path: "/Users/me/Tools/Top.app", source: .running),
+        ], selfBundleID: "self")
+        XCTAssertEqual(apps.map(\.name), ["Top"])
+    }
+
+    /// Several Unity versions share one bundle id; the first copy found
+    /// (the scan lists the newest first) is the one shown.
+    func testSameSourceKeepsTheFirstCopy() {
+        let apps = InstalledApps.filter([
+            record("com.unity3d.UnityEditor5.x", "Unity", path: "/Applications/Unity/Hub/Editor/6000.0.23f1/Unity.app", source: .editorFolder),
+            record("com.unity3d.UnityEditor5.x", "Unity", path: "/Applications/Unity/Hub/Editor/2022.3.10f1/Unity.app", source: .editorFolder),
+            record("com.unity3d.UnityEditor5.x", "Unity", path: "/Volumes/Work/Unity.app", source: .running),
+        ], selfBundleID: "self")
+        XCTAssertEqual(apps.map(\.path), ["/Applications/Unity/Hub/Editor/6000.0.23f1/Unity.app"])
     }
 
     func testListsAreExclusive() {

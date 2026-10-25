@@ -63,7 +63,7 @@ struct SettingsView: View {
         .frame(width: 520)
         .frame(minHeight: 460, idealHeight: 640)
         .onAppear {
-            installed = InstalledApps.scan()
+            rescanApps()
             recheckPassword()
             refreshWouldFreeze()
             // The user may have approved or removed the item in System
@@ -141,7 +141,11 @@ struct SettingsView: View {
                 ForEach(ids.compactMap { installedByID[$0] }) { app in
                     AppChip(app: app) { update { $0.remove(app.bundleID, from: list) } }
                 }
-                AddChipButton(label: "Add an app to \(title)") { picker = list }
+                AddChipButton(label: "Add an app to \(title)") {
+                    // Picks up apps opened since Settings did.
+                    rescanApps()
+                    picker = list
+                }
             }
         }
         .padding(.vertical, 2)
@@ -399,6 +403,12 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Saved ids are looked up too, so an app added while it was running
+    /// keeps its chip after it quits.
+    private func rescanApps() {
+        installed = InstalledApps.scan(saved: manager.config.freezeList + manager.config.agentList)
     }
 
     /// Same planner as the lid-close action, over the apps running now.

@@ -360,16 +360,25 @@ Both lists work the same way.
 over a list of bundle records so it can be tested):
 
 - Included: `.app` bundles in `/Applications` and `~/Applications`, up to
-  two folders deep (this catches `/Applications/Setapp/…`).
+  two folders deep (this catches `/Applications/Setapp/…`); the Unity
+  editors in `/Applications/Unity/Hub/Editor/<version>/Unity.app` and the
+  Unreal editors (`UnrealEditor.app`, `UE4Editor.app`) in
+  `/Users/Shared/Epic Games/<engine>/Engine/Binaries/Mac/`; where
+  LaunchServices finds each saved bundle ID; and every running `.regular`
+  app, wherever it lives.
 - Left out:
   - anything whose bundle ID starts with `com.apple.`, or that lives under
     `/System`;
   - Insomnia itself;
   - bundles with no bundle ID;
-  - bundles marked `LSBackgroundOnly`.
+  - bundles marked `LSBackgroundOnly`;
+  - bundles inside another bundle (helpers, login items), and copies run
+    from `/private/var/folders` (App Translocation).
 - Menu bar apps (`LSUIElement`) such as Tailscale stay in, since people put
   them on the full-speed list.
-- Duplicate bundle IDs keep the copy in `/Applications`.
+- Duplicate bundle IDs keep the copy from the earliest source, in the
+  order above (`/Applications` first); within a source the first found
+  stays, and the newest Unity version is scanned first.
 - Sorted by display name, ignoring case.
 - Rescanned each time the sheet opens. The chips read names and icons from
   the same scan, cached for the life of the Settings window.
