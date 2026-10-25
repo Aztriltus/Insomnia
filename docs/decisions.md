@@ -74,12 +74,12 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 
 ## Settings
 
-**Where it stands:** progressive disclosure. The top level opens with Open at login and the version with Check for updates, then two equal app lists, durations and hotspot; everything else is folded under Advanced. Only installed apps are shown, as a small icon and name.
+**Where it stands:** progressive disclosure. The top level opens with Open at login and the version with Check for updates, then two equal app lists, durations and hotspot; everything else is folded under Advanced. Only installed apps are shown, as a small icon and name. Installed means the Applications folders, the Unity and Unreal editors, and any app that's running.
 
 **Replaced:** none.
 
 <details>
-<summary>4 decisions</summary>
+<summary>5 decisions</summary>
 
 | Date | Decision | Why | Turned down |
 | --- | --- | --- | --- |
@@ -87,6 +87,7 @@ Sources: the Claude Code sessions of 2026-10-23 and 2026-10-24 that started the 
 | 2026-10-23 | **Only apps the user downloaded are shown, each as its icon and a small title; apps they don't have are hidden.** | Users should only think about whether apps are added. | Typed bundle identifiers; showing defaults for apps that aren't installed. |
 | 2026-10-23 | **Two equal lists at the top: "Pause when the lid closes" and "Keep at full speed".** | Chosen from mockups. | One list with the other under Advanced; one grid with three states per app. |
 | 2026-10-24 | **Open at login and the version with Check for updates sit at the top of Settings, outside Advanced.** | "Lets put it in the non-advanced settings though, maybe at the top." | Check for updates under Advanced > About. |
+| 2026-10-25 | **The app picker also lists the Unity and Unreal editors from their default folders, and any Dock app that's running, wherever it's installed.** | A friend couldn't find the Unity and Unreal editors, only their launchers; those editors sit deeper than the Applications scan or outside it. | A Spotlight search of every app on the Mac (pulls in helpers and stray copies). |
 
 </details>
 
